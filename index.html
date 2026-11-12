@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>cyr — вход</title>
+<style>
+:root{--card:#e4ecff;--ink:#1b2767;--sub:#4b5b9e;--shd:rgba(28,48,140,.38);--shl:rgba(255,255,255,.7);--ih:rgba(255,255,255,.7);--id:rgba(70,95,190,.25);--bg:#7ea6ff;
+--raise:8px 10px 22px var(--shd),-6px -6px 16px var(--shl),inset -6px -6px 12px var(--id),inset 6px 6px 12px var(--ih);
+--pit:inset 4px 5px 10px var(--shd),inset -3px -3px 8px var(--shl)}
+@media (prefers-color-scheme:dark){:root{--card:#34458f;--ink:#f0f4ff;--sub:#c3d0ff;--shd:rgba(5,12,50,.55);--shl:rgba(150,175,255,.28);--ih:rgba(190,205,255,.25);--id:rgba(0,0,40,.4)}}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 "Nunito","Segoe UI",system-ui,sans-serif}
+body{display:grid;place-items:center;padding:env(safe-area-inset-top,0px) 16px env(safe-area-inset-bottom,0px)}
+form{width:min(380px,100%);padding:22px 20px;border-radius:28px;background:var(--card);box-shadow:var(--raise);box-sizing:border-box}
+h1{margin:0 0 4px;font-size:22px;font-weight:800}
+p{margin:0 0 14px;color:var(--sub);font-size:13px}
+.r{display:flex;gap:10px;align-items:center}
+input{flex:1;min-width:0;border:0;border-radius:999px;padding:12px 16px;font:inherit;color:var(--ink);background:var(--card);box-shadow:var(--pit)}
+button{flex:none;width:44px;height:44px;border:0;border-radius:50%;background:var(--card);color:var(--ink);font:inherit;font-size:20px;font-weight:800;cursor:pointer;box-shadow:4px 5px 10px var(--shd),-3px -3px 8px var(--shl)}
+button:disabled{opacity:.5}
+#e{min-height:18px;margin-top:10px;color:#c0392b;font-size:13px}
+input:focus-visible,button:focus-visible{outline:3px solid #4f6cff;outline-offset:3px}
+</style>
+</head>
+<body>
+<form id="f" autocomplete="off">
+<h1>cyr</h1>
+<p>Вставь GitHub-токен (доступ ко всем репозиториям). Он хранится только в этой вкладке.</p>
+<div class="r"><input id="t" type="password" placeholder="ghp_… / github_pat_…" aria-label="GitHub токен" autocomplete="off" autocapitalize="off" spellcheck="false" required><button id="b" aria-label="Войти">→</button></div>
+<div id="e" role="alert"></div>
+</form>
+<script>
+if(sessionStorage.getItem('cyr_token'))location.replace('cyr.html');
+const f=document.getElementById('f'),t=document.getElementById('t'),b=document.getElementById('b'),e=document.getElementById('e');
+f.onsubmit=async ev=>{
+ ev.preventDefault();const k=t.value.trim();if(!k)return;
+ b.disabled=true;e.textContent='';
+ try{
+  const r=await fetch('https://api.github.com/user',{headers:{Authorization:'Bearer '+k,Accept:'application/vnd.github+json'}});
+  if(r.status===401)throw new Error('Токен не подошёл (401)');
+  if(!r.ok)throw new Error('GitHub ответил '+r.status);
+  sessionStorage.setItem('cyr_token',k);location.replace('cyr.html');
+ }catch(x){e.textContent=x.message==='Failed to fetch'?'Нет связи с GitHub':x.message;b.disabled=false;}
+};
+</script>
+</body>
+</html>
