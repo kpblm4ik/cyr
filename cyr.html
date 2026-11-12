@@ -29,6 +29,7 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1
 .sw{width:24px;height:24px;border-radius:50%;border:0;padding:0;cursor:pointer;box-shadow:3px 4px 7px var(--shd),-2px -2px 5px var(--shl),inset -3px -3px 5px rgba(0,0,0,.16),inset 3px 3px 5px rgba(255,255,255,.55)}
 .btn{background:var(--card);color:var(--ink);border:0;border-radius:999px;padding:6px 12px;font:inherit;font-weight:800;font-size:12px;cursor:pointer;box-shadow:var(--raise-s)}
 .sw:disabled,.btn:disabled,input:disabled{opacity:.4;cursor:default}
+select{width:100%;border:0;border-radius:999px;padding:7px 12px;font:inherit;font-weight:800;font-size:12px;color:var(--ink);background:var(--card);box-shadow:var(--raise-s)}
 input[type=color]{-webkit-appearance:none;appearance:none;width:30px;height:30px;padding:4px;border:0;border-radius:50%;background:var(--card);box-shadow:var(--raise-s)}
 input[type=color]::-webkit-color-swatch-wrapper{padding:0}
 input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
@@ -37,10 +38,10 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:50%}
 .lg i{flex:none;width:12px;height:12px;border-radius:50%;box-shadow:inset -2px -2px 4px rgba(0,0,0,.2),inset 2px 2px 4px rgba(255,255,255,.6)}
 /* малярный скотч: обёртка .tape ставится матрицей по плоскости ящика, .tp — сам кусок ленты */
 .tape{position:fixed;left:0;top:0;width:100px;height:28px;transform-origin:0 0;pointer-events:none;filter:drop-shadow(0 1px 1.5px rgba(60,45,0,.35))}
-.tp{width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;padding:0 6px;white-space:nowrap;color:rgba(59,52,18,.85);font:700 19px/1 "Caveat","Comic Sans MS","Segoe Print",cursive;letter-spacing:.02em;
+.tp{width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;padding:0 6px;white-space:nowrap;overflow:hidden;color:rgba(59,52,18,.85);font:700 19px/1 "Caveat","Comic Sans MS","Segoe Print",cursive;letter-spacing:.02em;
 background:repeating-linear-gradient(90deg,rgba(150,120,20,.07) 0 1px,transparent 1px 3px),linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0) 40%,rgba(120,90,0,.06)),#f8eeb0;
 clip-path:polygon(0 0,100% 0,98% 12%,100% 25%,98% 37%,100% 50%,98% 62%,100% 75%,98% 87%,100% 100%,0 100%,2% 88%,0 75%,2% 63%,0 50%,2% 37%,0 25%,2% 13%)}
-button:focus-visible,input:focus-visible{outline:3px solid #4f6cff;outline-offset:3px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #4f6cff;outline-offset:3px}
 </style>
 </head>
 <body>
@@ -53,25 +54,29 @@ button:focus-visible,input:focus-visible{outline:3px solid #4f6cff;outline-offse
 <button id="tg" class="ib" aria-label="Меню" aria-expanded="false"><svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h12"/></svg></button>
 </div>
 <div id="mb" hidden>
+<div class="row"><select id="srv" aria-label="Сервер (репозиторий)"></select></div>
+<div class="row" id="pgr" hidden><button id="pp" class="btn" aria-label="Назад">‹</button><span id="pl"></span><button id="pn" class="btn" aria-label="Дальше">›</button></div>
 <div class="row" id="sw"></div>
 <div class="row"><label>свой <input type="color" id="cc" value="#ffb68a" disabled></label>
 <button id="rs" class="btn" disabled>Сбросить</button></div>
-<div class="row"><label>Фон <input type="color" id="bg" value="#7ea6ff"></label></div>
+<div class="row"><label>Фон <input type="color" id="bg" value="#7ea6ff"></label><button id="lo" class="btn">Выйти</button></div>
 <div class="row" style="display:block">
-<div class="lg"><i style="background:#ffb68a"></i>Процессор: .py .js .sh</div>
-<div class="lg"><i style="background:#8a919f"></i>RTX 4080: .html .css</div>
-<div class="lg"><i style="background:#f1ecff"></i>SSD: .png .mp4 .mp3</div></div>
+<div class="lg"><i style="background:#ffb68a"></i>Процессор: скрипты</div>
+<div class="lg"><i style="background:#8a919f"></i>RTX 4080: html, css</div>
+<div class="lg"><i style="background:#f1ecff"></i>SSD: фото, видео, аудио</div></div>
 </div>
 </div>
 <script>
 (()=>{
 const $=id=>document.getElementById(id);
+const TOK=sessionStorage.getItem('cyr_token');
+if(!TOK){location.replace('index.html');return;}
 const cv=$('c'),gl=cv.getContext('webgl',{antialias:true});
 if(!gl){$('name').textContent='WebGL недоступен в этом браузере.';return;}
 const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
 const toHex=c=>'#'+c.map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
 
-/* ---- данные: сервер (стойка) → ящики (папки) → детали (файлы) ----
+/* ---- данные: сервер (репо) → ящики (папки) → детали (файлы) ----
    part: {o:центр, s:размер, f:множитель цвета детали | c:фиксированный цвет, k:1 — цилиндр вдоль Z} */
 const CHR='#e3e8f2',DK='#16181c',FAN='#23262d',GRY='#9aa2b2',BLK='#0b0c0e';
 /* RTX 4080 Founders Edition: толстый корпус, хромированная рамка, слева вентилятор, справа решётка */
@@ -101,20 +106,18 @@ const TYPES={
 };
 /* ребристая решётка: повторяем деталь p по смещениям p.x вдоль X */
 for(const t in TYPES)TYPES[t].parts=TYPES[t].parts.flatMap(p=>p.x?p.x.map(dx=>({...p,x:0,o:[p.o[0]+dx-.0,p.o[1],p.o[2]]})):[p]);
-const EXT={py:'cpu',js:'cpu',sh:'cpu',html:'gpu',css:'gpu',png:'ssd',mp4:'ssd',mp3:'ssd'};
-const CELLS=[
- {n:'core/',f:['main.py','app.js','build.sh']},
- {n:'web/',f:['index.html','style.css']},
- {n:'media/',f:['cover.png','intro.mp4','theme.mp3']},
- {n:'tools/',f:['deploy.sh','sync.py']}];
+/* расширение файла → тип детали */
+const EXT={};
+[['cpu','py js mjs cjs ts jsx tsx sh bash zsh bat ps1 rb php lua go rs java c cpp cs kt swift'],
+ ['gpu','html htm css scss'],
+ ['ssd','png jpg jpeg gif webp svg bmp ico heic mp4 mov webm mkv avi mp3 wav ogg flac m4a']]
+ .forEach(([t,s])=>s.split(' ').forEach(e=>EXT[e]=t));
+const ext=f=>f.split('.').pop().toLowerCase();
+/* дорожки в лотке: процессоры сзади, видеокарта посередине, SSD спереди; LW — ширина детали, MAXL — максимум на дорожку */
+const LZ={cpu:-.75,gpu:.45,ssd:1.35},LW={cpu:1.1,gpu:2.45,ssd:2},MAXL=6;
 const YC=[5.74,4.29,2.84,1.39],Z0=1.95,TRAVEL=3;
-const dr=CELLS.map((c,i)=>({n:c.n,yc:YC[i],a:0,id:i+1}));
-const items=[];
-CELLS.forEach((c,ci)=>c.f.forEach((f,i)=>{
- const t=EXT[f.split('.').pop()],n=c.f.length,m=i-(n-1)/2;
- items.push({id:10+items.length,name:f,type:t,cell:ci,
-  lx:t==='cpu'?m*1.45:0,lz:t==='cpu'?0:m*(t==='gpu'?1.5:1.05),y:0,col:hex(TYPES[t].col)});
-}));
+const dr=YC.map((yc,i)=>({n:'',yc,a:0,id:i+1,on:false}));
+let repos=[],cur=0,cellsAll=[],pg=0,CELLS=[],items=[],msg='';
 const K='#0d0e10',IN='#1c1d21',TR='#2b2d33',FSC='#1a1c22',SHF='#2a2d35';
 /* цельный корпус: боковины и крышка/дно перекрываются и скруглены одинаково — швов нет */
 const frame=[
@@ -142,10 +145,10 @@ function prog(vs,attr){
  gl.attachShader(p,sh(gl.VERTEX_SHADER,vs));gl.attachShader(p,sh(gl.FRAGMENT_SHADER,FS));
  gl.bindAttribLocation(p,0,attr);gl.linkProgram(p);return p;
 }
-const pg=prog('attribute vec3 g;uniform mat4 vp;uniform vec3 t,s;uniform float r;varying vec3 vn;void main(){vec3 a=abs(g),sg=sign(g);vn=normalize(sg*max((a-.5)*2.,0.));vec3 b=s*.5-r;gl_Position=vp*vec4(sg*min(a*2.,1.)*b+r*vn+t,1.);}','g');
+const pg1=prog('attribute vec3 g;uniform mat4 vp;uniform vec3 t,s;uniform float r;varying vec3 vn;void main(){vec3 a=abs(g),sg=sign(g);vn=normalize(sg*max((a-.5)*2.,0.));vec3 b=s*.5-r;gl_Position=vp*vec4(sg*min(a*2.,1.)*b+r*vn+t,1.);}','g');
 const pg2=prog('attribute vec4 cp;uniform mat4 vp;uniform vec3 t,s;varying vec3 vn;void main(){vn=cp.w==0.?normalize(vec3(cp.xy,0.)):vec3(0.,0.,cp.w);gl_Position=vp*vec4(cp.xyz*s+t,1.);}','cp');
 const lk=(p,a)=>{const o={};a.forEach(k=>o[k]=gl.getUniformLocation(p,k));return o;};
-const L1=lk(pg,['vp','t','s','col','pick','hi','r','vd']),L2=lk(pg2,['vp','t','s','col','pick','hi','vd']);
+const L1=lk(pg1,['vp','t','s','col','pick','hi','r','vd']),L2=lk(pg2,['vp','t','s','col','pick','hi','vd']);
 
 const G=[-1,-.83,-.67,-.5,.5,.67,.83,1],V=[];
 for(let a=0;a<3;a++)for(const f of[1,-1]){
@@ -183,13 +186,13 @@ function cyl(t,s,c){
  gl.useProgram(pg2);gl.bindBuffer(gl.ARRAY_BUFFER,cbuf);gl.vertexAttribPointer(0,4,gl.FLOAT,false,0,0);
  gl.uniformMatrix4fv(L2.vp,false,VP);gl.uniform1f(L2.pick,S.pick);gl.uniform1f(L2.hi,S.hi);gl.uniform3fv(L2.vd,S.vd);
  gl.uniform3fv(L2.t,t);gl.uniform3fv(L2.s,s);gl.uniform3fv(L2.col,c);gl.drawArrays(gl.TRIANGLES,0,NC);
- gl.useProgram(pg);gl.bindBuffer(gl.ARRAY_BUFFER,bbuf);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+ gl.useProgram(pg1);gl.bindBuffer(gl.ARRAY_BUFFER,bbuf);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
 }
 function setHi(v){S.hi=v;gl.uniform1f(L1.hi,v);}
 
 function drawer(d,pick){
  const s=d.a*TRAVEL,y=d.yc,zc=Z0-1.7+s,i=d.id-1;
- const F=h=>pick?[d.id/255,0,0]:hex(h),B=h=>pick?[(20+i)/255,0,0]:hex(h);
+ const F=h=>pick?[d.id/255,0,0]:hex(h),B=h=>pick?[(200+i)/255,0,0]:hex(h);
  box([0,y,Z0+.1+s],[4.7,.96,.2],F(K),.1);
  box([0,y,Z0+.2+s],[4.3,.62,.04],F(IN),.02);
  box([0,y-.4,zc],[4.5,.12,3.4],B(TR),.05);
@@ -198,13 +201,13 @@ function drawer(d,pick){
  box([0,y-.12,zc-1.64],[4.5,.45,.12],B(TR),.05);
 }
 function parts(it,pick){
- const d=dr[it.cell],k=Math.min(1,Math.max(0,(d.a-.12)*2));
+ const d=dr[it.cell],k=Math.min(1,Math.max(0,(d.a-.12)*2)),c=it.sc;
  if(k<.03)return;
  const zc=Z0-1.7+d.a*TRAVEL,bx=it.lx,by=d.yc-.34+it.y,bz=zc+it.lz-.35;
  setHi(!pick&&it.id-10===sel?.14:0);
  for(const p of TYPES[it.type].parts){
   const col=pick?[it.id/255,0,0]:p.c?hex(p.c):it.col.map(v=>v*p.f);
-  const t=[bx+p.o[0],by+p.o[1]*k,bz+p.o[2]],s=[p.s[0],p.s[1]*k,p.s[2]];
+  const t=[bx+p.o[0]*c,by+p.o[1]*k*c,bz+p.o[2]*c],s=[p.s[0]*c,p.s[1]*k*c,p.s[2]*c];
   if(p.k)cyl(t,s,col);else box(t,s,col);
  }
 }
@@ -217,7 +220,7 @@ function draw(pick){
  gl.viewport(0,0,W,H);
  if(pick)gl.clearColor(0,0,0,1);else gl.clearColor(bg[0],bg[1],bg[2],1);
  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
- gl.useProgram(pg);
+ gl.useProgram(pg1);
  gl.uniformMatrix4fv(L1.vp,false,VP);gl.uniform1f(L1.pick,S.pick);gl.uniform1f(L1.hi,0);gl.uniform3fv(L1.vd,S.vd);
  for(const[t,s,c,r]of frame)box(t,s,pick?[0,0,0]:hex(c),r);
  for(const d of dr)drawer(d,pick);
@@ -228,7 +231,7 @@ function draw(pick){
 const TW=1.3,TH=.36,TPX=100,TPY=28;
 const tapes=dr.map((d,i)=>{
  const e=document.createElement('div'),p=document.createElement('div');
- e.className='tape';p.className='tp';p.textContent=d.n;
+ e.className='tape';p.className='tp';
  p.style.transform='rotate('+((i%2?1:-1)*(.8+i*.35))+'deg)';
  e.appendChild(p);$('labels').appendChild(e);return e;
 });
@@ -243,8 +246,58 @@ function place(){
   const a=proj(x0,y0,z),b=proj(x0+TW,y0,z),c=proj(x0,y0-TH,z);
   let cover=0;for(let j=0;j<i;j++)cover=Math.max(cover,dr[j].a);
   tapes[i].style.transform='matrix('+[(b[0]-a[0])/TPX,(b[1]-a[1])/TPX,(c[0]-a[0])/TPY,(c[1]-a[1])/TPY,a[0],a[1]].join(',')+')';
-  tapes[i].style.opacity=Math.max(0,Math.min(1,1-cover*4));
+  tapes[i].style.opacity=d.on?Math.max(0,Math.min(1,1-cover*4)):0;
  });
+}
+
+/* ---- GitHub: репозитории → серверы, папки → ящики, файлы → детали ---- */
+const api=async u=>{
+ const r=await fetch('https://api.github.com'+u,{headers:{Authorization:'Bearer '+TOK,Accept:'application/vnd.github+json'}});
+ if(r.status===401){sessionStorage.removeItem('cyr_token');location.replace('index.html');throw new Error('401');}
+ if(!r.ok)throw new Error(r.status);
+ return r.json();
+};
+function build(){
+ CELLS=cellsAll.slice(pg*4,pg*4+4);
+ dr.forEach((d,i)=>{d.on=i<CELLS.length;d.n=d.on?CELLS[i].n:'';d.a=0;tapes[i].firstChild.textContent=d.n;});
+ items=[];
+ CELLS.forEach((c,ci)=>['cpu','gpu','ssd'].forEach(t=>{
+  const fs=c.f.filter(f=>EXT[ext(f)]===t).slice(0,MAXL),w=LW[t],sc=Math.min(1,4.2/(fs.length*w));
+  fs.forEach((f,i)=>items.push({id:10+items.length,name:f.split('/').pop(),path:f,type:t,cell:ci,sc,
+   lx:(i-(fs.length-1)/2)*w*sc,lz:LZ[t],y:0,col:hex(TYPES[t].col)}));
+ }));
+ od=-1;sel=-1;
+ const pages=Math.ceil(cellsAll.length/4);
+ $('pgr').hidden=pages<2;$('pl').textContent=(pg+1)+' / '+pages;$('pp').disabled=pg<1;$('pn').disabled=pg>=pages-1;
+ ui();
+}
+async function loadServer(i){
+ cur=i;pg=0;cellsAll=[];msg='Загружаю…';build();
+ const r=repos[i];
+ try{
+  const t=await api('/repos/'+r.full_name+'/git/trees/'+encodeURIComponent(r.default_branch)+'?recursive=1');
+  const m=new Map();
+  for(const e of t.tree){
+   if(e.type!=='blob'||!EXT[ext(e.path)])continue;
+   const s=e.path.indexOf('/'),k=s<0?'/':e.path.slice(0,s)+'/';
+   if(!m.has(k))m.set(k,[]);m.get(k).push(e.path);
+  }
+  cellsAll=[...m].sort(([a],[b])=>a==='/'?-1:b==='/'?1:a.localeCompare(b)).map(([n,f])=>({n,f}));
+  msg=cellsAll.length?'Ящиков: '+cellsAll.length+(t.truncated?' (список файлов неполный)':''):'Нет подходящих файлов';
+ }catch(e){msg=e.message==='409'?'Репозиторий пуст':'Не удалось загрузить ('+e.message+')';}
+ if(cur===i)build();
+}
+async function loadRepos(){
+ msg='Загружаю репозитории…';ui();
+ try{
+  for(let p=1;p<=10;p++){
+   const r=await api('/user/repos?per_page=100&sort=pushed&page='+p);
+   repos.push(...r);if(r.length<100)break;
+  }
+ }catch(e){msg='Не удалось загрузить репозитории ('+e.message+')';ui();return;}
+ $('srv').innerHTML='';
+ repos.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.full_name;$('srv').appendChild(o);});
+ if(repos.length)loadServer(0);else{msg='Репозиториев нет';ui();}
 }
 
 /* ---- ввод ---- */
@@ -265,9 +318,9 @@ cv.addEventListener('pointerup',e=>{
  down=null;
 });
 function tap(id){
- if(id>=1&&id<=4){od=od===id-1?-1:id-1;sel=-1;}
+ if(id>=1&&id<=4){if(dr[id-1].on){od=od===id-1?-1:id-1;sel=-1;}}
  else if(id>=10&&id<10+items.length){sel=sel===id-10?-1:id-10;if(sel>=0)menu(true);}
- else if(id>=20&&id<=23){sel=-1;}
+ else if(id>=200){sel=-1;}
  else if(sel>=0){sel=-1;}
  else{od=-1;}
  ui();
@@ -287,14 +340,18 @@ function ui(){
  cl.hidden=od<0;
  if(on){const it=items[sel];$('name').textContent=it.name;$('meta').textContent=TYPES[it.type].name+', ящик '+CELLS[it.cell].n;cc.value=toHex(it.col);}
  else if(od>=0){$('name').textContent=CELLS[od].n;$('meta').textContent='Ящик открыт, файлов: '+CELLS[od].f.length;}
- else{$('name').textContent='cyr-test';$('meta').textContent='Нажмите на ящик';}
+ else{$('name').textContent=repos[cur]?repos[cur].name:'cyr';$('meta').textContent=msg;}
 }
 tg.onclick=()=>menu(mb.hidden);
 cc.oninput=()=>paint(cc.value);
 rs.onclick=()=>{if(sel>=0){const it=items[sel];it.col=hex(TYPES[it.type].col);cc.value=TYPES[it.type].col;}};
 cl.onclick=()=>{od=-1;sel=-1;ui();};
 $('bg').oninput=e=>{bg=hex(e.target.value);document.documentElement.style.setProperty('--bg',e.target.value);};
-ui();
+$('srv').onchange=e=>loadServer(+e.target.value);
+$('pp').onclick=()=>{pg--;build();};
+$('pn').onclick=()=>{pg++;build();};
+$('lo').onclick=()=>{sessionStorage.removeItem('cyr_token');location.replace('index.html');};
+build();loadRepos();
 
 /* ---- цикл ---- */
 (function loop(){
