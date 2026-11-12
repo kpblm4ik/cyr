@@ -34,6 +34,7 @@ input[type=color]{-webkit-appearance:none;appearance:none;width:30px;height:30px
 input[type=color]::-webkit-color-swatch-wrapper{padding:0}
 input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
 input[type=color]::-moz-color-swatch{border:0;border-radius:50%}
+.chl{position:fixed;left:0;top:0;pointer-events:none;color:#eef2ff;font:800 10px/1.1 "Nunito",system-ui,sans-serif;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px #000,0 0 3px #000;opacity:0}
 .lg{font-size:12px;display:flex;align-items:center;gap:7px;margin:3px 0}
 .lg i{flex:none;width:12px;height:12px;border-radius:50%;box-shadow:inset -2px -2px 4px rgba(0,0,0,.2),inset 2px 2px 4px rgba(255,255,255,.6)}
 /* малярный скотч: обёртка .tape ставится матрицей по плоскости ящика, .tp — сам кусок ленты */
@@ -100,7 +101,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <div class="row" style="display:block">
 <div class="lg"><i style="background:#ffa51a"></i>Процессор: скрипты (до 4)</div>
 <div class="lg"><i style="background:#6c6f76"></i>RTX 5080: html, css (до 8)</div>
-<div class="lg"><i style="background:#ffe3d6"></i>SSD: фото, видео, аудио (до 12)</div></div>
+<div class="lg"><i style="background:#ffe3d6"></i>SSD: фото, видео, аудио (до 12)</div>
+<div class="lg"><i style="background:#c8ced8"></i>SATA: .md — открой, внутри чипы (до 12)</div></div>
 </div>
 </div>
 <div id="tab" class="tab off">
@@ -150,7 +152,17 @@ const TYPES={
   {o:[0,.04,0],s:[1.05,.08,1.05],f:.4},{o:[0,.14,0],s:[.95,.2,.95],f:1},{o:[0,.27,0],s:[.55,.06,.55],f:.55}]},
  gpu:{name:'RTX 5080',col:'#6c6f76',parts:gpuParts},
  ssd:{name:'SSD',col:'#ffe3d6',parts:[
-  {o:[0,.09,0],s:[1.7,.18,.9],f:1},{o:[.1,.2,0],s:[1,.03,.55],f:.5},{o:[-.95,.06,0],s:[.2,.12,.7],c:'#ffd98a'}]}
+  {o:[0,.09,0],s:[1.7,.18,.9],f:1},{o:[.1,.2,0],s:[1,.03,.55],f:.5},{o:[-.95,.06,0],s:[.2,.12,.7],c:'#ffd98a'}]},
+ /* 2.5" SATA-диск (длина 1.0 по X, глубина 0.7 по Z): корпус, плата внутри, крышка (lid — уезжает при открытии), разъёмы SATA сбоку */
+ sata:{name:'SATA-диск',col:'#c8ced8',parts:[
+  {o:[0,.035,0],s:[1,.07,.7],f:.85},{o:[0,.077,0],s:[.92,.014,.62],c:'#1f6b3a'},
+  {o:[-.42,.088,.2],s:[.06,.01,.16],c:'#ffd98a'},
+  {o:[0,.1,0],s:[1,.03,.7],f:1,lid:1},{o:[-.04,.117,0],s:[.62,.006,.46],c:'#262a33',lid:1},{o:[-.04,.121,-.12],s:[.4,.004,.05],c:TXT,lid:1},
+  {o:[-.505,.05,.1],s:[.02,.045,.24],c:BLK},{o:[-.505,.05,-.2],s:[.02,.045,.13],c:BLK}]},
+ /* чип памяти = один .md-файл: корпус, золотые выводы по двум сторонам, метка первого вывода */
+ chip:{name:'Чип (.md)',col:'#2a2d35',parts:[
+  {o:[0,.065,0],s:[.8,.1,.56],f:1},{o:[0,.025,.3],s:[.72,.03,.06],c:'#ffd98a'},{o:[0,.025,-.3],s:[.72,.03,.06],c:'#ffd98a'},
+  {o:[-.3,.117,-.17],s:[.07,.006,.07],c:GRY}]}
 };
 /* ребристая решётка: повторяем деталь p по смещениям p.x вдоль X */
 for(const t in TYPES)TYPES[t].parts=TYPES[t].parts.flatMap(p=>p.x?p.x.map(dx=>({...p,x:0,o:[p.o[0]+dx-.0,p.o[1],p.o[2]]})):[p]);
@@ -158,6 +170,7 @@ for(const t in TYPES)TYPES[t].parts=TYPES[t].parts.flatMap(p=>p.x?p.x.map(dx=>({
 const EXT={};
 [['cpu','py js mjs cjs ts jsx tsx sh bash zsh bat ps1 rb php lua go rs java c cpp cs kt swift'],
  ['gpu','html htm css scss'],
+ ['sata','md markdown mdx'],
  ['ssd','png jpg jpeg gif webp svg bmp ico heic mp4 mov webm mkv avi mp3 wav ogg flac m4a']]
  .forEach(([t,s])=>s.split(' ').forEach(e=>EXT[e]=t));
 const MIME={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',bmp:'image/bmp',ico:'image/x-icon',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm',mkv:'video/x-matroska',avi:'video/x-msvideo',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',flac:'audio/flac',m4a:'audio/mp4'};
@@ -165,9 +178,12 @@ const ext=f=>f.split('.').pop().toLowerCase();
 /* раскладка лотка: процессоры сзади слева (до 4), SSD узкой полосой справа на всю глубину (до 12), видеокарты спереди плотно от левой стенки (до 8).
    ZN — зона в координатах лотка (x от центра, z от центра лотка), FP — габарит детали (SSD лежит повёрнутым, видеокарты стоят на ребре).
    Не поместилось — следующий уровень: ещё один ящик внутри ящика (до MAXLV уровней). */
-const CAP={cpu:4,gpu:8,ssd:12},MAXLV=6,NEST=3.5;
+const CAP={cpu:4,gpu:8,ssd:12,sata:12},MAXLV=6,NEST=3.5;
+/* SATA-диск лежит в задней зоне справа от процессоров (по одному на уровень, до 12 чипов внутри); если в папке есть .md — зона процессоров сужается */
+const ZNS={x0:.2,x1:1.3,z0:-1.54,z1:-.66},ZNC={x0:-2.1,x1:.1,z0:-1.54,z1:-.66},BOARD={x0:-.4,x1:.44,z0:-.27,z1:.27},SOPEN=2.3;
+const sm=v=>v*v*(3-2*v);
 const ZN={cpu:{x0:-2.1,x1:1.3,z0:-1.54,z1:-.66},gpu:{x0:-2.1,x1:1.3,z0:-.6,z1:1.66},ssd:{x0:1.38,x1:2.1,z0:-1.54,z1:1.66}};
-const FP={cpu:[1.05,1.05],gpu:[.48,2.12],ssd:[.9,1.9]};
+const FP={cpu:[1.05,1.05],gpu:[.48,2.12],ssd:[.9,1.9],sata:[1.05,.75],chip:[.92,.74]};
 function fit(n,z,fp,dense){
  if(!n)return[];
  const w=z.x1-z.x0,h=z.z1-z.z0;let best=null;
@@ -184,7 +200,7 @@ const YC=[5.74,4.29,2.84,1.39],Z0=1.95,TRAVEL=3,STX=-20;
 const MAXC=4,PER=4*MAXC,CW=6;let ncol=1;
 const dr=Array.from({length:PER},(_,i)=>({n:'',i,col:Math.floor(i/4),yc:YC[i%4],a:0,id:200+i,on:false,levels:1,shown:0,nl:new Array(MAXLV).fill(0)}));
 const cxOf=d=>(d.col-(ncol-1)/2)*CW;
-let repos=[],cur=0,cellsAll=[],pg=0,CELLS=[],items=[],msg='',tabOn=false,fs=false,fsrc='',edOn=false,F=null,outId=-1,edDone=false,lv=0;
+let repos=[],cur=0,cellsAll=[],pg=0,CELLS=[],items=[],msg='',tabOn=false,fs=false,fsrc='',edOn=false,F=null,outId=-1,edDone=false,lv=0,sOpen=-1;
 const K='#0d0e10',IN='#1c1d21',TR='#2b2d33',FSC='#1a1c22',SHF='#2a2d35';
 /* цельный корпус: боковины и крышка/дно перекрываются и скруглены одинаково — швов нет; ширина зависит от числа колонок n */
 function mkFrame(n){
@@ -300,25 +316,44 @@ function stand(pick){
  [.5,.75,1].forEach(z=>B([-1,2.88,z],[2.3,.05,.18],'#8a93a6',.02));
 }
 const DESK=[STX+1.9,2.75,.6];
-const itemPos=it=>[cxOf(dr[it.cell])+it.lx,dr[it.cell].yc-.34+it.y,trayZ(dr[it.cell],it.lvl)+it.lz];
+/* положение детали в лотке: {b:центр, c:масштаб, k:выдвижение по высоте} или null, если не видна.
+   Открытый SATA-диск поднимается над лотком и увеличивается; чипы лежат на его плате и видны только при открытой крышке */
+function xf(it){
+ const d=dr[it.cell];
+ if(it.type==='chip'){
+  const p=items[it.par],q=xf(p),o=Math.min(1,Math.max(0,(p.op-.3)*2));
+  if(!q||o<.03)return null;
+  return{b:[q.b[0]+it.lx*q.c,q.b[1]+(.084+it.y*.3)*q.c,q.b[2]+it.lz*q.c],c:q.c*it.sc,k:q.k*o};
+ }
+ let k=Math.min(1,Math.max(0,(d.a-.12)*2));
+ if(it.lvl)k*=Math.min(1,Math.max(0,(d.nl[it.lvl]-.4)*2.5));
+ if(k<.03)return null;
+ const b=[cxOf(d)+it.lx,d.yc-.34+it.y,trayZ(d,it.lvl)+it.lz];
+ if(it.type==='sata'&&it.op>.001){
+  const e=sm(it.op),t=sataOpenPos(it);
+  return{b:b.map((v,j)=>v+(t[j]-v)*e),c:it.sc+(SOPEN-it.sc)*e,k};
+ }
+ return{b,c:it.sc,k};
+}
+const sataOpenPos=it=>{const d=dr[it.cell];return[cxOf(d),d.yc+.85,trayZ(d,it.lvl)+.35];};
 function parts(it,pick){
- const d=dr[it.cell],e=it.ps*it.ps*(3-2*it.ps);
- let b,c=it.sc,k;
+ const e=it.ps*it.ps*(3-2*it.ps);
+ let b,c,k;
  if(e>.001){
   /* деталь вытащена: летит дугой из лотка на стол стенда */
   const h=it.h;
   b=[h[0]+(DESK[0]-h[0])*e,h[1]+(DESK[1]-h[1])*e+2.5*Math.sin(Math.PI*e),h[2]+(DESK[2]-h[2])*e];
-  c=it.sc+(1-it.sc)*e;k=1;
+  c=it.hc+(1-it.hc)*e;k=1;
  }else{
-  k=Math.min(1,Math.max(0,(d.a-.12)*2));
-  if(it.lvl)k*=Math.min(1,Math.max(0,(d.nl[it.lvl]-.4)*2.5));
-  if(k<.03)return;
-  b=itemPos(it);
+  const q=xf(it);if(!q)return;
+  b=q.b;c=q.c;k=q.k;
  }
- const rot=it.rot&&e<.5;
+ const rot=it.rot&&e<.5,le=it.type==='sata'?sm(it.op):0;
  setHi(!pick&&it.i===sel?.14:0);
  for(const p of TYPES[it.type].parts){
-  const o=rot?[p.o[2],p.o[1],-p.o[0]]:p.o,z=rot?[p.s[2],p.s[1],p.s[0]]:p.s;
+  let o=rot?[p.o[2],p.o[1],-p.o[0]]:p.o;const z=rot?[p.s[2],p.s[1],p.s[0]]:p.s;
+  /* крышка SATA-диска при открытии поднимается и отъезжает назад */
+  if(p.lid&&le>.001)o=[o[0],o[1]+.25*le,o[2]-.8*le];
   const col=pick?pc(1000+it.i):p.c?hex(p.c):it.col.map(v=>v*p.f);
   const t=[b[0]+o[0]*c,b[1]+o[1]*k*c,b[2]+o[2]*c],s=[z[0]*c,z[1]*k*c,z[2]*c];
   if(p.k)cyl(t,s,col);else box(t,s,col);
@@ -374,7 +409,18 @@ function place(){
  const on=outId>=0&&items[outId]&&items[outId].ps>.95;
  mon.style.transform=mat(proj(STX-1.5,5.35,-.77),proj(STX+1.5,5.35,-.77),proj(STX-1.5,3.65,-.77),300,170);
  mon.style.opacity=on?1:0;
+ /* подписи чипов открытого SATA-диска */
+ const so=sOpen>=0&&outId<0?items[sOpen]:null;let li=0;
+ if(so&&so.op>.85)for(const it of items){
+  if(it.type!=='chip'||it.par!==sOpen||li>=chl.length)continue;
+  const q=xf(it);if(!q)continue;
+  const w=.8*q.c,y=q.b[1]+.12*q.c,a=proj(q.b[0]-w/2,y,q.b[2]),bb=proj(q.b[0]+w/2,y,q.b[2]),el=chl[li++],t=it.name.replace(/\.(md|markdown|mdx)$/i,'');
+  if(el.textContent!==t)el.textContent=t;
+  el.style.width=Math.max(24,bb[0]-a[0])+'px';el.style.transform='translate('+a[0]+'px,'+(a[1]-6)+'px)';el.style.opacity=1;
+ }
+ for(;li<chl.length;li++)chl[li].style.opacity=0;
 }
+const chl=Array.from({length:CAP.sata},()=>{const e=document.createElement('div');e.className='chl';$('labels').appendChild(e);return e;});
 
 /* ---- планшет: сайт выбранного репозитория во встроенном окне ---- */
 function siteUrl(r){
@@ -418,22 +464,27 @@ const api=gh;
 const leaveOk=()=>!(F&&F.dirty)||confirm('Есть несохранённые изменения. Продолжить без сохранения?');
 function build(){
  if(edOn){edOn=false;$('ed').hidden=true;document.body.classList.remove('edm');}
- outId=-1;F=null;lv=0;showMon();
+ outId=-1;F=null;lv=0;sOpen=-1;showMon();
  CELLS=cellsAll.slice(pg*PER,(pg+1)*PER);
  const nc=Math.max(1,Math.ceil(CELLS.length/4));
  if(nc!==ncol){ncol=nc;frame=mkFrame(nc);}
  items=[];
  dr.forEach((d,i)=>{d.on=i<CELLS.length;d.n=d.on?CELLS[i].n:'';d.a=0;d.nl.fill(0);d.levels=1;d.shown=0;});
  CELLS.forEach((c,ci)=>{
-  const by={cpu:[],gpu:[],ssd:[]},d=dr[ci];
+  const by={cpu:[],gpu:[],ssd:[],sata:[]},d=dr[ci],TT=['cpu','gpu','ssd','sata'];
   c.f.forEach(f=>by[EXT[ext(f)]].push(f));
-  d.levels=Math.min(MAXLV,Math.max(1,...['cpu','gpu','ssd'].map(t=>Math.ceil(by[t].length/CAP[t]))));
-  for(let L=0;L<d.levels;L++)['cpu','gpu','ssd'].forEach(t=>{
+  d.levels=Math.min(MAXLV,Math.max(1,...TT.map(t=>Math.ceil(by[t].length/CAP[t]))));
+  const mk=(t,path,L,q,x)=>{const it=Object.assign({i:items.length,name:path.split('/').pop(),path,type:t,cell:ci,lvl:L,rot:t==='ssd',sc:q.sc,lx:q.x,lz:q.z,y:0,ps:0,pt:0,op:0,h:null,hc:1,col:hex(TYPES[t].col)},x);items.push(it);return it;};
+  for(let L=0;L<d.levels;L++)TT.forEach(t=>{
    const fl=by[t].slice(L*CAP[t],(L+1)*CAP[t]);
-   fit(fl.length,ZN[t],FP[t],t==='gpu').forEach((q,j)=>{
-    items.push({i:items.length,name:fl[j].split('/').pop(),path:fl[j],type:t,cell:ci,lvl:L,rot:t==='ssd',sc:q.sc,lx:q.x,lz:q.z,y:0,ps:0,pt:0,h:null,col:hex(TYPES[t].col)});
-    d.shown++;
-   });
+   if(t==='sata'){
+    /* все .md уровня — чипы внутри одного SATA-диска */
+    if(!fl.length)return;
+    const disk=mk('sata',c.n,L,fit(1,ZNS,FP.sata)[0],{name:'SATA · '+fl.length+' .md',n:fl.length});
+    fit(fl.length,BOARD,FP.chip).forEach((q,j)=>{mk('chip',fl[j],L,q,{par:disk.i});d.shown++;});
+    return;
+   }
+   fit(fl.length,t==='cpu'&&by.sata.length?ZNC:ZN[t],FP[t],t==='gpu').forEach((q,j)=>{mk(t,fl[j],L,q);d.shown++;});
   });
  });
  dr.forEach((d,i)=>{tapes[i].firstChild.textContent=d.n+(d.levels>1?' ×'+d.levels:'');});
@@ -530,24 +581,25 @@ async function save(){
 }
 function pull(i){
  if(outId>=0&&!leave())return;
- const it=items[i];
- it.h=itemPos(it);
- it.pt=1;outId=i;od=-1;lv=0;sel=-1;edDone=false;
+ const it=items[i],q=xf(it);
+ if(!q||it.type==='sata')return;
+ it.h=q.b;it.hc=q.c;
+ it.pt=1;outId=i;od=-1;lv=0;sel=-1;sOpen=-1;edDone=false;
  loadFile(it);ui();
 }
 function leave(){
  if(outId<0)return true;
  if(F&&F.dirty&&!confirm('Есть несохранённые изменения. Вернуть деталь без сохранения?'))return false;
  if(edOn){edOn=false;$('ed').hidden=true;document.body.classList.remove('edm');}
- const it=items[outId];it.pt=0;od=it.cell;lv=it.lvl;outId=-1;F=null;showMon();ui();return true;
+ const it=items[outId];it.pt=0;od=it.cell;lv=it.lvl;sOpen=it.type==='chip'?it.par:-1;outId=-1;F=null;showMon();ui();return true;
 }
 ea.oninput=()=>{if(!F)return;F.dirty=ea.value!==F.text;$('es').textContent=F.dirty?'Изменено, не сохранено':'Сохранено';};
 ea.onkeydown=e=>{if(e.key==='Tab'){e.preventDefault();ea.setRangeText('  ',ea.selectionStart,ea.selectionEnd,'end');ea.oninput();}};
 $('ex').onclick=closeEd;
 $('sv').onclick=save;
 $('pu').onclick=()=>{if(sel>=0)pull(sel);};
-$('lp').onclick=()=>{if(lv>0){lv--;ui();}};
-$('ln').onclick=()=>{if(od>=0&&lv<dr[od].levels-1){lv++;ui();}};
+$('lp').onclick=()=>{if(lv>0){lv--;sOpen=-1;sel=-1;ui();}};
+$('ln').onclick=()=>{if(od>=0&&lv<dr[od].levels-1){lv++;sOpen=-1;sel=-1;ui();}};
 document.addEventListener('keydown',e=>{
  if(e.key==='Escape'){if(edOn)closeEd();else if(fs)setFs(false);}
  else if(edOn&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save();}
@@ -575,17 +627,20 @@ function tap(id){
  if(id===6){if(outId>=0)openEd();return;}
  if(id>=200&&id<300){
   const k=id-200;
-  if(dr[k]&&dr[k].on){od=od===k?-1:k;lv=0;sel=-1;if(od>=0&&dr[od].levels>1)menu(true);}
+  if(dr[k]&&dr[k].on){od=od===k?-1:k;lv=0;sel=-1;sOpen=-1;if(od>=0&&dr[od].levels>1)menu(true);}
  }
  else if(id>=1000){
-  const i=id-1000;
-  if(!items[i])return;
+  const i=id-1000,it=items[i];
+  if(!it)return;
   if(outId===i){openEd();return;}
+  /* SATA-диск: тап открывает его (крышка уезжает, видны чипы); по открытому — только снять выбор */
+  if(it.type==='sata'){if(sOpen!==i){sOpen=i;od=it.cell;}sel=-1;ui();return;}
   if(sel===i){pull(i);return;}
   sel=i;menu(true);
  }
- else if(id>=100&&id<200){sel=-1;}
+ else if(id>=100&&id<200){if(sel>=0)sel=-1;else sOpen=-1;}
  else if(sel>=0){sel=-1;}
+ else if(sOpen>=0){sOpen=-1;}
  else{od=-1;lv=0;}
  ui();
 }
@@ -605,16 +660,17 @@ function ui(){
  $('lvr').hidden=!nest;
  if(nest){$('ll').textContent='ящик в ящике '+(lv+1)+' / '+dr[od].levels;$('lp').disabled=lv<1;$('ln').disabled=lv>=dr[od].levels-1;}
  cl.hidden=od<0&&outId<0;
- cl.setAttribute('aria-label',outId>=0?'Вернуть деталь на место':'Закрыть ящик');
+ cl.setAttribute('aria-label',outId>=0?'Вернуть деталь на место':sOpen>=0?'Закрыть SATA-диск':'Закрыть ящик');
  if(outId>=0){$('name').textContent=items[outId].name;$('meta').textContent='На стенде. Тап по монитору — редактор';}
  else if(on){const it=items[sel];$('name').textContent=it.name;$('meta').textContent=TYPES[it.type].name+', ящик '+CELLS[it.cell].n+'. Ещё тап — править';cc.value=toHex(it.col);}
+ else if(sOpen>=0){const s2=items[sOpen];$('name').textContent='SATA-диск';$('meta').textContent='Чипов (.md): '+s2.n+', ящик '+CELLS[s2.cell].n+'. Тап по чипу — выбрать';}
  else if(od>=0){const n=CELLS[od].f.length,sh2=dr[od].shown;$('name').textContent=CELLS[od].n;$('meta').textContent='Ящик открыт, файлов: '+n+(sh2<n?' (показано '+sh2+')':'');}
  else{$('name').textContent=repos[cur]?repos[cur].name:'cyr';$('meta').textContent=msg;}
 }
 tg.onclick=()=>menu(mb.hidden);
 cc.oninput=()=>paint(cc.value);
 rs.onclick=()=>{if(sel>=0){const it=items[sel];it.col=hex(TYPES[it.type].col);cc.value=TYPES[it.type].col;}};
-cl.onclick=()=>{if(outId>=0){leave();return;}od=-1;lv=0;sel=-1;ui();};
+cl.onclick=()=>{if(outId>=0){leave();return;}if(sOpen>=0){sOpen=-1;sel=-1;ui();return;}od=-1;lv=0;sel=-1;ui();};
 $('bg').oninput=e=>{bg=hex(e.target.value);document.documentElement.style.setProperty('--bg',e.target.value);};
 $('srv').onchange=e=>{if(!leaveOk()){e.target.value=cur;return;}loadServer(+e.target.value);};
 $('pp').onclick=()=>{if(!leaveOk())return;pg--;build();};
@@ -630,8 +686,8 @@ build();loadRepos();
    d.a+=((i===od?1:0)-d.a)*.14;
    for(let L=1;L<MAXLV;L++)d.nl[L]+=(((i===od&&L<=lv)?1:0)-d.nl[L])*.12;
   });
-  items.forEach((it,i)=>{it.y+=((i===sel?.3:0)-it.y)*.18;it.ps+=(it.pt-it.ps)*.07;if(Math.abs(it.pt-it.ps)<.002)it.ps=it.pt;});
-  const tg2=outId>=0?{x:STX,y:3.6,z:0,H:3.7,W:4,e:.4}:od<0?{x:0,y:4.8,z:0,H:5.8,W:ncol*3+1.1,e:.45}:{x:cxOf(dr[od]),y:dr[od].yc-.1,z:3+lv*NEST,H:2.9,W:3.3,e:.95};
+  items.forEach((it,i)=>{if(it.type==='sata')it.op+=((i===sOpen?1:0)-it.op)*.1;it.y+=((i===sel?.3:0)-it.y)*.18;it.ps+=(it.pt-it.ps)*.07;if(Math.abs(it.pt-it.ps)<.002)it.ps=it.pt;});
+  const tg2=outId>=0?{x:STX,y:3.6,z:0,H:3.7,W:4,e:.4}:od<0?{x:0,y:4.8,z:0,H:5.8,W:ncol*3+1.1,e:.45}:sOpen>=0?(p=>({x:p[0],y:p[1],z:p[2],H:1.55,W:1.9,e:1.05}))(sataOpenPos(items[sOpen])):{x:cxOf(dr[od]),y:dr[od].yc-.1,z:3+lv*NEST,H:2.9,W:3.3,e:.95};
   for(const k in tg2)cam[k]+=(tg2[k]-cam[k])*.1;
   draw(false);place();
   if(outId>=0&&!edDone&&items[outId].ps>.985){edDone=true;openEd();}
