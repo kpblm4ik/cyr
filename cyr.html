@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>cyr — сервер</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&family=Caveat:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{--card:#e4ecff;--ink:#1b2767;--sub:#4b5b9e;--shd:rgba(28,48,140,.38);--shl:rgba(255,255,255,.7);--ih:rgba(255,255,255,.7);--id:rgba(70,95,190,.25);--bg:#7ea6ff;
 --raise:8px 10px 22px var(--shd),-6px -6px 16px var(--shl),inset -6px -6px 12px var(--id),inset 6px 6px 12px var(--ih);
@@ -35,13 +35,17 @@ input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
 input[type=color]::-moz-color-swatch{border:0;border-radius:50%}
 .lg{font-size:12px;display:flex;align-items:center;gap:7px;margin:3px 0}
 .lg i{flex:none;width:12px;height:12px;border-radius:50%;box-shadow:inset -2px -2px 4px rgba(0,0,0,.2),inset 2px 2px 4px rgba(255,255,255,.6)}
-.tag{position:fixed;transform:translate(-50%,-50%);padding:5px 14px;border-radius:999px;background:var(--card);color:var(--ink);font-weight:800;font-size:13px;white-space:nowrap;pointer-events:none;box-shadow:var(--raise-s)}
+/* малярный скотч: обёртка .tape ставится матрицей по плоскости ящика, .tp — сам кусок ленты */
+.tape{position:fixed;left:0;top:0;width:100px;height:28px;transform-origin:0 0;pointer-events:none;filter:drop-shadow(0 1px 1.5px rgba(60,45,0,.35))}
+.tp{width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;padding:0 6px;white-space:nowrap;color:rgba(59,52,18,.85);font:700 19px/1 "Caveat","Comic Sans MS","Segoe Print",cursive;letter-spacing:.02em;
+background:repeating-linear-gradient(90deg,rgba(150,120,20,.07) 0 1px,transparent 1px 3px),linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0) 40%,rgba(120,90,0,.06)),#f8eeb0;
+clip-path:polygon(0 0,100% 0,98% 12%,100% 25%,98% 37%,100% 50%,98% 62%,100% 75%,98% 87%,100% 100%,0 100%,2% 88%,0 75%,2% 63%,0 50%,2% 37%,0 25%,2% 13%)}
 button:focus-visible,input:focus-visible{outline:3px solid #4f6cff;outline-offset:3px}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="labels"></div>
+<div id="labels" aria-hidden="true"></div>
 <div id="menu">
 <div class="mh">
 <div class="mt"><div id="name"></div><div id="meta"></div></div>
@@ -111,12 +115,24 @@ CELLS.forEach((c,ci)=>c.f.forEach((f,i)=>{
  items.push({id:10+items.length,name:f,type:t,cell:ci,
   lx:t==='cpu'?m*1.45:0,lz:t==='cpu'?0:m*(t==='gpu'?1.5:1.05),y:0,col:hex(TYPES[t].col)});
 }));
-const K='#0d0e10',IN='#1c1d21',TR='#2b2d33';
+const K='#0d0e10',IN='#1c1d21',TR='#2b2d33',FSC='#1a1c22',SHF='#2a2d35';
+/* цельный корпус: боковины и крышка/дно перекрываются и скруглены одинаково — швов нет */
 const frame=[
- [[-3,4.8,0],[.8,9.6,4.2],K],[[3,4.8,0],[.8,9.6,4.2],K],
- [[0,.25,0],[5.2,.5,4.2],K],[[0,9.35,0],[5.2,.5,4.2],K],
- [[0,4.8,-1.95],[5.2,8.6,.3],IN,.05],
+ [[-3,4.8,0],[.8,9.6,4.2],K,.08],[[3,4.8,0],[.8,9.6,4.2],K,.08],
+ [[0,.25,0],[6.8,.5,4.2],K,.08],[[0,9.35,0],[6.8,.5,4.2],K,.08],
+ [[0,4.8,-1.95],[5.3,8.8,.3],IN,.02],
  [[0,-.15,0],[10,.3,7.4],'#5a82e6',.12]];
+/* перегородки: полка под каждым ящиком (и потолок над верхним), чтобы ящики не висели в воздухе */
+for(let i=-1;i<4;i++){
+ const top=(i<0?YC[0]+1.45:YC[i])-.47,bot=i===3?.5:top-.1;
+ frame.push([[0,(top+bot)/2,.075],[5.4,top-bot,3.75],SHF,.02]);
+}
+/* фасад: фальшпанели между ящиками, над и под ними, и боковые вставки — лицо стойки сплошное */
+const fz=Z0+.1,fh=(y0,y1)=>[[0,(y0+y1)/2,fz],[5.2,y1-y0,.2],FSC,.02];
+frame.push(fh(YC[0]+.48,9.1),fh(.5,YC[3]-.48));
+for(let i=0;i<3;i++)frame.push(fh(YC[i+1]+.48,YC[i]-.48));
+frame.push([[0,(YC[0]+.48+9.1)/2,fz+.1],[4.3,9.1-YC[0]-.48-.4,.04],IN,.02]);
+for(const yc of YC)for(const sx of[-1,1])frame.push([[sx*2.475,yc,fz],[.25,.96,.2],FSC,.02]);
 
 /* ---- WebGL: скруглённые боксы + цилиндры (вентиляторы) ---- */
 const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;};
@@ -208,14 +224,26 @@ function draw(pick){
  for(const it of items)parts(it,pick);
 }
 
-/* ---- подписи ящиков ---- */
-const tags=dr.map(d=>{const e=document.createElement('div');e.className='tag';e.textContent=d.n;$('labels').appendChild(e);return e;});
+/* ---- подписи: кусок малярного скотча в левом верхнем углу фасада ящика ---- */
+const TW=1.3,TH=.36,TPX=100,TPY=28;
+const tapes=dr.map((d,i)=>{
+ const e=document.createElement('div'),p=document.createElement('div');
+ e.className='tape';p.className='tp';p.textContent=d.n;
+ p.style.transform='rotate('+((i%2?1:-1)*(.8+i*.35))+'deg)';
+ e.appendChild(p);$('labels').appendChild(e);return e;
+});
+function proj(x,y,z){
+ const p=[x,y,z,1],o=[0,0,0,0];
+ for(let r=0;r<4;r++)for(let k=0;k<4;k++)o[r]+=VP[k*4+r]*p[k];
+ return[(o[0]*.5+.5)*innerWidth,(1-(o[1]*.5+.5))*innerHeight];
+}
 function place(){
  dr.forEach((d,i)=>{
-  const p=[0,d.yc,Z0+.4+d.a*TRAVEL,1],o=[0,0,0,0];
-  for(let r=0;r<4;r++)for(let k=0;k<4;k++)o[r]+=VP[k*4+r]*p[k];
-  tags[i].style.left=((o[0]*.5+.5)*innerWidth)+'px';
-  tags[i].style.top=((1-(o[1]*.5+.5))*innerHeight)+'px';
+  const z=Z0+.24+d.a*TRAVEL,x0=-2.3,y0=d.yc+.4;
+  const a=proj(x0,y0,z),b=proj(x0+TW,y0,z),c=proj(x0,y0-TH,z);
+  let cover=0;for(let j=0;j<i;j++)cover=Math.max(cover,dr[j].a);
+  tapes[i].style.transform='matrix('+[(b[0]-a[0])/TPX,(b[1]-a[1])/TPX,(c[0]-a[0])/TPY,(c[1]-a[1])/TPY,a[0],a[1]].join(',')+')';
+  tapes[i].style.opacity=Math.max(0,Math.min(1,1-cover*4));
  });
 }
 
