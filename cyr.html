@@ -162,39 +162,53 @@ const EXT={};
  .forEach(([t,s])=>s.split(' ').forEach(e=>EXT[e]=t));
 const MIME={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',bmp:'image/bmp',ico:'image/x-icon',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm',mkv:'video/x-matroska',avi:'video/x-msvideo',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',flac:'audio/flac',m4a:'audio/mp4'};
 const ext=f=>f.split('.').pop().toLowerCase();
-/* раскладка лотка по эскизу: процессоры сзади слева (до 4), SSD сзади справа узкой полосой (до 12), видеокарты спереди во всю ширину (до 8).
+/* раскладка лотка: процессоры сзади слева (до 4), SSD узкой полосой справа на всю глубину (до 12), видеокарты спереди плотно от левой стенки (до 8).
    ZN — зона в координатах лотка (x от центра, z от центра лотка), FP — габарит детали (SSD лежит повёрнутым, видеокарты стоят на ребре).
    Не поместилось — следующий уровень: ещё один ящик внутри ящика (до MAXLV уровней). */
 const CAP={cpu:4,gpu:8,ssd:12},MAXLV=6,NEST=3.5;
-const ZN={cpu:{x0:-1.76,x1:.08,z0:-1.3,z1:-.06},ssd:{x0:1.09,x1:1.85,z0:-1.27,z1:.32},gpu:{x0:-1.88,x1:1.89,z0:.41,z1:1.45}};
-const FP={cpu:[1.05,1.05],gpu:[.5,2.1],ssd:[.9,1.9]};
-function fit(n,z,fp){
+const ZN={cpu:{x0:-2.1,x1:1.3,z0:-1.54,z1:-.66},gpu:{x0:-2.1,x1:1.3,z0:-.6,z1:1.66},ssd:{x0:1.38,x1:2.1,z0:-1.54,z1:1.66}};
+const FP={cpu:[1.05,1.05],gpu:[.48,2.12],ssd:[.9,1.9]};
+function fit(n,z,fp,dense){
  if(!n)return[];
  const w=z.x1-z.x0,h=z.z1-z.z0;let best=null;
  for(let c=1;c<=n;c++){const r=Math.ceil(n/c),s=Math.min(1,w/c/fp[0],h/r/fp[1]);if(!best||s>best.s)best={c,r,s};}
- return Array.from({length:n},(_,i)=>({x:z.x0+(i%best.c+.5)*w/best.c,z:z.z0+(Math.floor(i/best.c)+.5)*h/best.r,sc:best.s}));
+ return Array.from({length:n},(_,i)=>{
+  const{c,r,s}=best,col=i%c,row=Math.floor(i/c);
+  /* плотно: детали встают вплотную друг к другу от левой стенки зоны */
+  if(dense)return{x:z.x0+(col+.5)*fp[0]*s,z:z.z0+(h-r*fp[1]*s)/2+(row+.5)*fp[1]*s,sc:s};
+  return{x:z.x0+(col+.5)*w/c,z:z.z0+(row+.5)*h/r,sc:s};
+ });
 }
 const YC=[5.74,4.29,2.84,1.39],Z0=1.95,TRAVEL=3,STX=-20;
-const dr=YC.map((yc,i)=>({n:'',yc,a:0,id:i+1,on:false,levels:1,shown:0,nl:new Array(MAXLV).fill(0)}));
+/* ящики: колонки по 4 (сверху вниз), больше 4 папок — сервер расширяется вправо, до MAXC колонок на страницу */
+const MAXC=4,PER=4*MAXC,CW=6;let ncol=1;
+const dr=Array.from({length:PER},(_,i)=>({n:'',i,col:Math.floor(i/4),yc:YC[i%4],a:0,id:200+i,on:false,levels:1,shown:0,nl:new Array(MAXLV).fill(0)}));
+const cxOf=d=>(d.col-(ncol-1)/2)*CW;
 let repos=[],cur=0,cellsAll=[],pg=0,CELLS=[],items=[],msg='',tabOn=false,fs=false,fsrc='',edOn=false,F=null,outId=-1,edDone=false,lv=0;
 const K='#0d0e10',IN='#1c1d21',TR='#2b2d33',FSC='#1a1c22',SHF='#2a2d35';
-/* цельный корпус: боковины и крышка/дно перекрываются и скруглены одинаково — швов нет */
-const frame=[
- [[-3,4.8,0],[.8,9.6,4.2],K,.08],[[3,4.8,0],[.8,9.6,4.2],K,.08],
- [[0,.25,0],[6.8,.5,4.2],K,.08],[[0,9.35,0],[6.8,.5,4.2],K,.08],
- [[0,4.8,-1.95],[5.3,8.8,.3],IN,.02],
- [[0,-.15,0],[10,.3,7.4],'#5a82e6',.12]];
-/* перегородки: полка под каждым ящиком (и потолок над верхним), чтобы ящики не висели в воздухе */
-for(let i=-1;i<4;i++){
- const top=(i<0?YC[0]+1.45:YC[i])-.47,bot=i===3?.5:top-.1;
- frame.push([[0,(top+bot)/2,.075],[5.4,top-bot,3.75],SHF,.02]);
+/* цельный корпус: боковины и крышка/дно перекрываются и скруглены одинаково — швов нет; ширина зависит от числа колонок n */
+function mkFrame(n){
+ const f=[];
+ for(let j=0;j<=n;j++)f.push([[(j-n/2)*CW,4.8,0],[.8,9.6,4.2],K,.08]);
+ f.push([[0,.25,0],[n*CW+.8,.5,4.2],K,.08],[[0,9.35,0],[n*CW+.8,.5,4.2],K,.08],
+  [[0,4.8,-1.95],[n*CW-.7,8.8,.3],IN,.02],[[0,-.15,0],[n*CW+4,.3,7.4],'#5a82e6',.12]);
+ const fz=Z0+.1;
+ for(let k=0;k<n;k++){
+  const cx=(k-(n-1)/2)*CW,fh=(y0,y1)=>[[cx,(y0+y1)/2,fz],[5.2,y1-y0,.2],FSC,.02];
+  /* перегородки: полка под каждым ящиком (и потолок над верхним), чтобы ящики не висели в воздухе */
+  for(let i=-1;i<4;i++){
+   const top=(i<0?YC[0]+1.45:YC[i])-.47,bot=i===3?.5:top-.1;
+   f.push([[cx,(top+bot)/2,.075],[5.4,top-bot,3.75],SHF,.02]);
+  }
+  /* фасад: фальшпанели между ящиками, над и под ними, и боковые вставки — лицо стойки сплошное */
+  f.push(fh(YC[0]+.48,9.1),fh(.5,YC[3]-.48));
+  for(let i=0;i<3;i++)f.push(fh(YC[i+1]+.48,YC[i]-.48));
+  f.push([[cx,(YC[0]+.48+9.1)/2,fz+.1],[4.3,9.1-YC[0]-.48-.4,.04],IN,.02]);
+  for(const yc of YC)for(const sx of[-1,1])f.push([[cx+sx*2.475,yc,fz],[.25,.96,.2],FSC,.02]);
+ }
+ return f;
 }
-/* фасад: фальшпанели между ящиками, над и под ними, и боковые вставки — лицо стойки сплошное */
-const fz=Z0+.1,fh=(y0,y1)=>[[0,(y0+y1)/2,fz],[5.2,y1-y0,.2],FSC,.02];
-frame.push(fh(YC[0]+.48,9.1),fh(.5,YC[3]-.48));
-for(let i=0;i<3;i++)frame.push(fh(YC[i+1]+.48,YC[i]-.48));
-frame.push([[0,(YC[0]+.48+9.1)/2,fz+.1],[4.3,9.1-YC[0]-.48-.4,.04],IN,.02]);
-for(const yc of YC)for(const sx of[-1,1])frame.push([[sx*2.475,yc,fz],[.25,.96,.2],FSC,.02]);
+let frame=mkFrame(1);
 
 /* ---- WebGL: скруглённые боксы + цилиндры (вентиляторы) ---- */
 const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;};
@@ -251,28 +265,28 @@ function setHi(v){S.hi=v;gl.uniform1f(L1.hi,v);}
 
 /* z центра лотка уровня L: основной лоток выезжает вместе с ящиком, вложенные выдвигаются вперёд один из другого */
 function trayZ(d,L){let z=Z0-1.7+d.a*TRAVEL;for(let j=1;j<=L;j++)z+=d.nl[j]*NEST;return z;}
-function tray(y,zc,pick,id){
+function tray(y,zc,pick,id,cx){
  const B=h=>pick?pc(id):hex(h);
- box([0,y-.4,zc],[4.5,.12,3.4],B(TR),.05);
- box([-2.19,y-.12,zc],[.12,.45,3.4],B(TR),.05);
- box([2.19,y-.12,zc],[.12,.45,3.4],B(TR),.05);
- box([0,y-.12,zc-1.64],[4.5,.45,.12],B(TR),.05);
+ box([cx,y-.4,zc],[4.5,.12,3.4],B(TR),.05);
+ box([cx-2.19,y-.12,zc],[.12,.45,3.4],B(TR),.05);
+ box([cx+2.19,y-.12,zc],[.12,.45,3.4],B(TR),.05);
+ box([cx,y-.12,zc-1.64],[4.5,.45,.12],B(TR),.05);
 }
 function drawer(d,pick){
- const s=d.a*TRAVEL,y=d.yc,F=h=>pick?pc(d.id):hex(h);
- box([0,y,Z0+.1+s],[4.7,.96,.2],F(K),.1);
- box([0,y,Z0+.2+s],[4.3,.62,.04],F(IN),.02);
- tray(y,Z0-1.7+s,pick,100+d.id-1);
- for(let L=1;L<MAXLV;L++)if(d.nl[L]>.03)tray(y,trayZ(d,L),pick,100+d.id-1);
+ const s=d.a*TRAVEL,y=d.yc,cx=cxOf(d),F=h=>pick?pc(d.id):hex(h);
+ box([cx,y,Z0+.1+s],[4.7,.96,.2],F(K),.1);
+ box([cx,y,Z0+.2+s],[4.3,.62,.04],F(IN),.02);
+ tray(y,Z0-1.7+s,pick,100+d.i,cx);
+ for(let L=1;L<MAXLV;L++)if(d.nl[L]>.03)tray(y,trayZ(d,L),pick,100+d.i,cx);
 }
-/* разъём для планшета на правой стойке: хромированная рамка, чёрный паз и светодиод (зелёный — подключено) */
+/* разъём для планшета на правой стойке (правая стенка сервера): хромированная рамка, чёрный паз и светодиод (зелёный — подключено) */
 const PORT=[3,7.6,2.15];
 function port(pick){
- const c=h=>pick?pc(5):hex(h);
- if(pick)box([3,7.7,2.2],[1,.9,.2],c(0),.02);
- box([3,7.6,2.12],[.56,.34,.05],c(CHR),.04);
- box([3,7.6,2.14],[.4,.18,.02],c(BLK),.02);
- box([3,7.98,2.12],[.12,.12,.04],c(tabOn?'#5dff9a':'#3a3f4a'),.03);
+ const c=h=>pick?pc(5):hex(h),px=ncol*3;
+ if(pick)box([px,7.7,2.2],[1,.9,.2],c(0),.02);
+ box([px,7.6,2.12],[.56,.34,.05],c(CHR),.04);
+ box([px,7.6,2.14],[.4,.18,.02],c(BLK),.02);
+ box([px,7.98,2.12],[.12,.12,.04],c(tabOn?'#5dff9a':'#3a3f4a'),.03);
 }
 /* стенд для перепрошивки: стол, монитор и клавиатура (тап по ним открывает редактор) */
 function stand(pick){
@@ -286,7 +300,7 @@ function stand(pick){
  [.5,.75,1].forEach(z=>B([-1,2.88,z],[2.3,.05,.18],'#8a93a6',.02));
 }
 const DESK=[STX+1.9,2.75,.6];
-const itemPos=it=>[it.lx,dr[it.cell].yc-.34+it.y,trayZ(dr[it.cell],it.lvl)+it.lz];
+const itemPos=it=>[cxOf(dr[it.cell])+it.lx,dr[it.cell].yc-.34+it.y,trayZ(dr[it.cell],it.lvl)+it.lz];
 function parts(it,pick){
  const d=dr[it.cell],e=it.ps*it.ps*(3-2*it.ps);
  let b,c=it.sc,k;
@@ -323,7 +337,7 @@ function draw(pick){
  gl.uniformMatrix4fv(L1.vp,false,VP);gl.uniform1f(L1.pick,S.pick);gl.uniform1f(L1.hi,0);gl.uniform3fv(L1.vd,S.vd);
  for(const[t,s,c,r]of frame)box(t,s,pick?[0,0,0]:hex(c),r);
  port(pick);stand(pick);
- for(const d of dr)drawer(d,pick);
+ for(const d of dr)if(d.col<ncol)drawer(d,pick);
  for(const it of items)parts(it,pick);
 }
 
@@ -332,7 +346,7 @@ const TW=1.3,TH=.36,TPX=100,TPY=28;
 const tapes=dr.map((d,i)=>{
  const e=document.createElement('div'),p=document.createElement('div');
  e.className='tape';p.className='tp';
- p.style.transform='rotate('+((i%2?1:-1)*(.8+i*.35))+'deg)';
+ p.style.transform='rotate('+((i%2?1:-1)*(.8+(i%4)*.35))+'deg)';
  e.appendChild(p);$('labels').appendChild(e);return e;
 });
 function proj(x,y,z){
@@ -344,14 +358,14 @@ const mat=(a,b,c,w,h)=>'matrix('+[(b[0]-a[0])/w,(b[1]-a[1])/w,(c[0]-a[0])/h,(c[1
 const tab=$('tab'),fr=$('fr'),tn=$('tn'),cb=$('cb'),mon=$('mon');
 function place(){
  dr.forEach((d,i)=>{
-  const z=Z0+.24+d.a*TRAVEL,x0=-2.3,y0=d.yc+.4;
-  let cover=0;for(let j=0;j<i;j++)cover=Math.max(cover,dr[j].a);
+  const z=Z0+.24+d.a*TRAVEL,x0=cxOf(d)-2.3,y0=d.yc+.4;
+  let cover=0;for(let j=d.col*4;j<i;j++)cover=Math.max(cover,dr[j].a);
   tapes[i].style.transform=mat(proj(x0,y0,z),proj(x0+TW,y0,z),proj(x0,y0-TH,z),TPX,TPY);
   tapes[i].style.opacity=d.on?Math.max(0,Math.min(1,1-cover*4)):0;
  });
  /* кабель: от разъёма на стойке к штекеру на верхнем крае планшета */
  if(tabOn){
-  const s=proj(PORT[0],PORT[1],PORT[2]),r=tab.getBoundingClientRect(),ex=r.left+r.width*.75,ey=r.top-6;
+  const s=proj(ncol*3,PORT[1],PORT[2]),r=tab.getBoundingClientRect(),ex=r.left+r.width*.75,ey=r.top-6;
   $('cpth').setAttribute('d','M'+s+' C'+(s[0]+90)+','+(s[1]+20)+' '+ex+','+(ey-140)+' '+ex+','+ey);
   $('cpl').setAttribute('cx',s[0]);$('cpl').setAttribute('cy',s[1]);
   cb.style.visibility='visible';
@@ -405,7 +419,9 @@ const leaveOk=()=>!(F&&F.dirty)||confirm('Есть несохранённые и
 function build(){
  if(edOn){edOn=false;$('ed').hidden=true;document.body.classList.remove('edm');}
  outId=-1;F=null;lv=0;showMon();
- CELLS=cellsAll.slice(pg*4,pg*4+4);
+ CELLS=cellsAll.slice(pg*PER,(pg+1)*PER);
+ const nc=Math.max(1,Math.ceil(CELLS.length/4));
+ if(nc!==ncol){ncol=nc;frame=mkFrame(nc);}
  items=[];
  dr.forEach((d,i)=>{d.on=i<CELLS.length;d.n=d.on?CELLS[i].n:'';d.a=0;d.nl.fill(0);d.levels=1;d.shown=0;});
  CELLS.forEach((c,ci)=>{
@@ -414,7 +430,7 @@ function build(){
   d.levels=Math.min(MAXLV,Math.max(1,...['cpu','gpu','ssd'].map(t=>Math.ceil(by[t].length/CAP[t]))));
   for(let L=0;L<d.levels;L++)['cpu','gpu','ssd'].forEach(t=>{
    const fl=by[t].slice(L*CAP[t],(L+1)*CAP[t]);
-   fit(fl.length,ZN[t],FP[t]).forEach((q,j)=>{
+   fit(fl.length,ZN[t],FP[t],t==='gpu').forEach((q,j)=>{
     items.push({i:items.length,name:fl[j].split('/').pop(),path:fl[j],type:t,cell:ci,lvl:L,rot:t==='ssd',sc:q.sc,lx:q.x,lz:q.z,y:0,ps:0,pt:0,h:null,col:hex(TYPES[t].col)});
     d.shown++;
    });
@@ -422,7 +438,7 @@ function build(){
  });
  dr.forEach((d,i)=>{tapes[i].firstChild.textContent=d.n+(d.levels>1?' ×'+d.levels:'');});
  od=-1;sel=-1;
- const pages=Math.ceil(cellsAll.length/4);
+ const pages=Math.ceil(cellsAll.length/PER);
  $('pgr').hidden=pages<2;$('pl').textContent=(pg+1)+' / '+pages;$('pp').disabled=pg<1;$('pn').disabled=pg>=pages-1;
  ui();
 }
@@ -435,7 +451,8 @@ async function loadServer(i){
   for(const e of t.tree){
    if(e.type!=='blob'||!EXT[ext(e.path)])continue;
    const s=e.path.indexOf('/'),k=s<0?'/':e.path.slice(0,s)+'/';
-   if(!m.has(k))m.set(k,[]);m.get(k).push(e.path);
+   if(!m.has(k))m.set(k,[]);
+   m.get(k).push(e.path);
   }
   cellsAll=[...m].sort(([a],[b])=>a==='/'?-1:b==='/'?1:a.localeCompare(b)).map(([n,f])=>({n,f}));
   msg=cellsAll.length?'Ящиков: '+cellsAll.length+(t.truncated?' (список файлов неполный)':''):'Нет подходящих файлов';
@@ -556,8 +573,9 @@ cv.addEventListener('pointerup',e=>{
 function tap(id){
  if(id===5){setTab(!tabOn);return;}
  if(id===6){if(outId>=0)openEd();return;}
- if(id>=1&&id<=4){
-  if(dr[id-1].on){od=od===id-1?-1:id-1;lv=0;sel=-1;if(od>=0&&dr[od].levels>1)menu(true);}
+ if(id>=200&&id<300){
+  const k=id-200;
+  if(dr[k]&&dr[k].on){od=od===k?-1:k;lv=0;sel=-1;if(od>=0&&dr[od].levels>1)menu(true);}
  }
  else if(id>=1000){
   const i=id-1000;
@@ -613,7 +631,7 @@ build();loadRepos();
    for(let L=1;L<MAXLV;L++)d.nl[L]+=(((i===od&&L<=lv)?1:0)-d.nl[L])*.12;
   });
   items.forEach((it,i)=>{it.y+=((i===sel?.3:0)-it.y)*.18;it.ps+=(it.pt-it.ps)*.07;if(Math.abs(it.pt-it.ps)<.002)it.ps=it.pt;});
-  const tg2=outId>=0?{x:STX,y:3.6,z:0,H:3.7,W:4,e:.4}:od<0?{x:0,y:4.8,z:0,H:5.8,W:4.1,e:.45}:{x:0,y:YC[od]-.1,z:3+lv*NEST,H:2.9,W:3.3,e:.95};
+  const tg2=outId>=0?{x:STX,y:3.6,z:0,H:3.7,W:4,e:.4}:od<0?{x:0,y:4.8,z:0,H:5.8,W:ncol*3+1.1,e:.45}:{x:cxOf(dr[od]),y:dr[od].yc-.1,z:3+lv*NEST,H:2.9,W:3.3,e:.95};
   for(const k in tg2)cam[k]+=(tg2[k]-cam[k])*.1;
   draw(false);place();
   if(outId>=0&&!edDone&&items[outId].ps>.985){edDone=true;openEd();}
