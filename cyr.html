@@ -99,7 +99,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <div class="row"><label>Фон <input type="color" id="bg" value="#7ea6ff"></label><button id="lo" class="btn">Выйти</button></div>
 <div class="row" style="display:block">
 <div class="lg"><i style="background:#ffa51a"></i>Процессор: скрипты (до 4)</div>
-<div class="lg"><i style="background:#2fc24a"></i>RTX 4080: html, css (до 8)</div>
+<div class="lg"><i style="background:#6c6f76"></i>RTX 5080: html, css (до 8)</div>
 <div class="lg"><i style="background:#ffe3d6"></i>SSD: фото, видео, аудио (до 12)</div></div>
 </div>
 </div>
@@ -128,28 +128,27 @@ const pc=id=>[(id&255)/255,(id>>8)/255,0];
 /* ---- данные: сервер (репо) → ящики (папки) → детали (файлы) ----
    part: {o:центр, s:размер, f:множитель цвета детали | c:фиксированный цвет, k:1 — цилиндр вдоль Z} */
 const CHR='#e3e8f2',DK='#16181c',FAN='#23262d',GRY='#9aa2b2',BLK='#0b0c0e';
-/* RTX 4080 Founders Edition: толстый корпус, хромированная рамка, слева вентилятор, справа решётка */
-const gpuParts=[
- {o:[0,.52,0],s:[2.2,.96,.5],f:1},
- {o:[0,.52,.25],s:[2.04,.8,.04],c:DK},
- {o:[0,.94,.265],s:[2.1,.06,.05],c:CHR},{o:[0,.1,.265],s:[2.1,.06,.05],c:CHR},
- {o:[-1.03,.52,.265],s:[.06,.84,.05],c:CHR},{o:[1.03,.52,.265],s:[.06,.84,.05],c:CHR},
- {o:[0,.52,.265],s:[.05,.8,.05],c:CHR},
- {k:1,o:[-.52,.52,.285],s:[.86,.86,.04],c:CHR},
- {k:1,o:[-.52,.52,.3],s:[.78,.78,.05],c:FAN},
- {k:1,o:[-.52,.52,.33],s:[.5,.5,.02],c:'#3a3e47'},
- {k:1,o:[-.52,.52,.335],s:[.24,.24,.05],c:CHR},
- {o:[.5,.52,.265],s:[.04,.7,.07],c:GRY,x:[0,.11,.22,.33,.44,.55,.66,.77]},
- {o:[0,1.02,0],s:[1.2,.04,.1],c:'#f4f7ff'},
- {o:[.85,1.07,-.05],s:[.4,.12,.22],c:BLK},
- {o:[-1.13,.5,0],s:[.06,.92,.5],c:CHR},
- {o:[-1.18,.22,0],s:[.05,.1,.26],c:BLK},{o:[-1.18,.42,0],s:[.05,.1,.26],c:BLK},
- {o:[-1.18,.62,0],s:[.05,.1,.26],c:BLK},{o:[-1.18,.82,0],s:[.05,.1,.26],c:BLK},
- {o:[0,.03,0],s:[1.2,.06,.1],c:'#ffd98a'}];
+const PNL='#101114',BRK='#3c3f45',TXT='#c9ced8';
+/* RTX 5080 Founders Edition стоит на ребре (вид «||||»): PCIe-контакты внизу, планка с портами к фасаду (+Z),
+   большие грани с двумя чёрными рёбристыми окнами смотрят в стороны (±X), сверху «GEFORCE RTX» и вентиляционный вырез.
+   Размеры модели: толщина 0.36 (X), высота 0.9 (Y), длина 2.0 (Z). */
+const gpuParts=[{o:[0,.46,0],s:[.36,.88,2],f:1}];
+for(const sx of[-1,1])gpuParts.push(
+ {o:[sx*.185,.46,.55],s:[.04,.66,.72],c:PNL},
+ {o:[sx*.185,.46,-.55],s:[.04,.66,.72],c:PNL},
+ {o:[sx*.19,.46,0],s:[.012,.28,.05],c:TXT});
+gpuParts.push(
+ {o:[0,.9,-.1],s:[.1,.012,1.05],c:TXT},
+ {o:[0,.9,-.5],s:[.22,.04,.3],c:BLK},
+ {o:[-.07,.9,.3],s:[.025,.03,.6],c:BLK},{o:[.07,.9,.3],s:[.025,.03,.6],c:BLK},
+ {o:[0,.46,1.03],s:[.46,.9,.04],c:BRK},
+ {o:[0,.18,1.065],s:[.17,.09,.03],c:BLK},{o:[0,.36,1.065],s:[.2,.09,.03],c:BLK},
+ {o:[0,.54,1.065],s:[.2,.09,.03],c:BLK},{o:[0,.72,1.065],s:[.2,.09,.03],c:BLK},
+ {o:[0,.03,.3],s:[.05,.06,.9],c:'#ffd98a'});
 const TYPES={
  cpu:{name:'Процессор',col:'#ffa51a',parts:[
   {o:[0,.04,0],s:[1.05,.08,1.05],f:.4},{o:[0,.14,0],s:[.95,.2,.95],f:1},{o:[0,.27,0],s:[.55,.06,.55],f:.55}]},
- gpu:{name:'RTX 4080',col:'#2fc24a',parts:gpuParts},
+ gpu:{name:'RTX 5080',col:'#6c6f76',parts:gpuParts},
  ssd:{name:'SSD',col:'#ffe3d6',parts:[
   {o:[0,.09,0],s:[1.7,.18,.9],f:1},{o:[.1,.2,0],s:[1,.03,.55],f:.5},{o:[-.95,.06,0],s:[.2,.12,.7],c:'#ffd98a'}]}
 };
@@ -164,11 +163,11 @@ const EXT={};
 const MIME={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',bmp:'image/bmp',ico:'image/x-icon',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm',mkv:'video/x-matroska',avi:'video/x-msvideo',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',flac:'audio/flac',m4a:'audio/mp4'};
 const ext=f=>f.split('.').pop().toLowerCase();
 /* раскладка лотка по эскизу: процессоры сзади слева (до 4), SSD сзади справа узкой полосой (до 12), видеокарты спереди во всю ширину (до 8).
-   ZN — зона в координатах лотка (x от центра, z от центра лотка), FP — габарит детали (SSD лежит повёрнутым).
+   ZN — зона в координатах лотка (x от центра, z от центра лотка), FP — габарит детали (SSD лежит повёрнутым, видеокарты стоят на ребре).
    Не поместилось — следующий уровень: ещё один ящик внутри ящика (до MAXLV уровней). */
 const CAP={cpu:4,gpu:8,ssd:12},MAXLV=6,NEST=3.5;
 const ZN={cpu:{x0:-1.76,x1:.08,z0:-1.3,z1:-.06},ssd:{x0:1.09,x1:1.85,z0:-1.27,z1:.32},gpu:{x0:-1.88,x1:1.89,z0:.41,z1:1.45}};
-const FP={cpu:[1.05,1.05],gpu:[2.45,.75],ssd:[.9,1.9]};
+const FP={cpu:[1.05,1.05],gpu:[.5,2.1],ssd:[.9,1.9]};
 function fit(n,z,fp){
  if(!n)return[];
  const w=z.x1-z.x0,h=z.z1-z.z0;let best=null;
