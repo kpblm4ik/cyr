@@ -105,7 +105,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <div class="lg"><i style="background:#ffa51a"></i>Процессор: скрипты (до 4)</div>
 <div class="lg"><i style="background:#6c6f76"></i>RTX 5080: html, css (до 8)</div>
 <div class="lg"><i style="background:#ffe3d6"></i>SSD: фото, видео, аудио (до 12)</div>
-<div class="lg"><i style="background:#c8ced8"></i>SATA: .md — открой, внутри чипы (до 12)</div></div>
+<div class="lg"><i style="background:#c8ced8"></i>SATA: .md и медиа из подпапок — открой, внутри чипы (до 12)</div></div>
 </div>
 </div>
 <div id="tab" class="tab off">
@@ -169,14 +169,17 @@ const TYPES={
 };
 /* ребристая решётка: повторяем деталь p по смещениям p.x вдоль X */
 for(const t in TYPES)TYPES[t].parts=TYPES[t].parts.flatMap(p=>p.x?p.x.map(dx=>({...p,x:0,o:[p.o[0]+dx-.0,p.o[1],p.o[2]]})):[p]);
-/* расширение файла → тип детали */
+/* расширение файла → тип детали. Медиа (SSD) — все форматы из MIME, чтобы новые (avif, jxl, heif…) не пропадали молча */
+const MEDIA=['png','apng','jpg','jpeg','jfif','pjpeg','pjp','gif','webp','avif','jxl','heic','heif','svg','bmp','ico','cur','tif','tiff','mp4','m4v','mov','webm','mkv','avi','ogv','mpg','mpeg','3gp','mp3','wav','ogg','oga','opus','flac','m4a','aac','weba','aif','aiff'];
 const EXT={};
 [['cpu','py js mjs cjs ts jsx tsx sh bash zsh bat ps1 rb php lua go rs java c cpp cs kt swift'],
  ['gpu','html htm css scss'],
  ['sata','md markdown mdx'],
- ['ssd','png jpg jpeg gif webp svg bmp ico heic mp4 mov webm mkv avi mp3 wav ogg flac m4a']]
+ ['ssd',MEDIA.join(' ')]]
  .forEach(([t,s])=>s.split(' ').forEach(e=>EXT[e]=t));
-const MIME={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',bmp:'image/bmp',ico:'image/x-icon',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm',mkv:'video/x-matroska',avi:'video/x-msvideo',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',flac:'audio/flac',m4a:'audio/mp4'};
+const MIME={png:'image/png',apng:'image/apng',jpg:'image/jpeg',jpeg:'image/jpeg',jfif:'image/jpeg',pjpeg:'image/jpeg',pjp:'image/jpeg',gif:'image/gif',webp:'image/webp',avif:'image/avif',jxl:'image/jxl',heic:'image/heic',heif:'image/heif',svg:'image/svg+xml',bmp:'image/bmp',ico:'image/x-icon',cur:'image/x-icon',tif:'image/tiff',tiff:'image/tiff',
+ mp4:'video/mp4',m4v:'video/mp4',mov:'video/quicktime',webm:'video/webm',mkv:'video/x-matroska',avi:'video/x-msvideo',ogv:'video/ogg',mpg:'video/mpeg',mpeg:'video/mpeg','3gp':'video/3gpp',
+ mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',oga:'audio/ogg',opus:'audio/ogg',flac:'audio/flac',m4a:'audio/mp4',aac:'audio/aac',weba:'audio/webm',aif:'audio/aiff',aiff:'audio/aiff'};
 const ext=f=>f.split('.').pop().toLowerCase();
 /* раскладка лотка: процессоры сзади слева (до 4), SSD узкой полосой справа на всю глубину (до 12), видеокарты спереди плотно от левой стенки (до 8).
    ZN — зона в координатах лотка (x от центра, z от центра лотка), FP — габарит детали (SSD лежит повёрнутым, видеокарты стоят на ребре).
@@ -454,7 +457,7 @@ function place(){
  if(so&&so.op>.85)for(const it of items){
   if(it.type!=='chip'||it.par!==sOpen||li>=chl.length)continue;
   const q=xf(it);if(!q)continue;
-  const w=.8*q.c,y=q.b[1]+.12*q.c,a=proj(q.b[0]-w/2,y,q.b[2]),bb=proj(q.b[0]+w/2,y,q.b[2]),el=chl[li++],t=it.name.replace(/\.(md|markdown|mdx)$/i,'');
+  const w=.8*q.c,y=q.b[1]+.12*q.c,a=proj(q.b[0]-w/2,y,q.b[2]),bb=proj(q.b[0]+w/2,y,q.b[2]),el=chl[li++],t=it.media?it.name:it.name.replace(/\.(md|markdown|mdx)$/i,'');
   if(el.textContent!==t)el.textContent=t;
   el.style.width=Math.max(24,bb[0]-a[0])+'px';el.style.transform='translate('+a[0]+'px,'+(a[1]-6)+'px)';el.style.opacity=1;
  }
@@ -511,21 +514,28 @@ function build(){
  items=[];
  dr.forEach((d,i)=>{d.on=i<CELLS.length;d.n=d.on?CELLS[i].n:'';d.a=0;d.nl.fill(0);d.levels=1;d.shown=0;});
  CELLS.forEach((c,ci)=>{
-  const by={cpu:[],gpu:[],ssd:[],sata:[]},d=dr[ci],TT=['cpu','gpu','ssd','sata'];
-  c.f.forEach(f=>by[EXT[ext(f)]].push(f));
-  d.levels=Math.min(MAXLV,Math.max(1,...TT.map(t=>Math.ceil(by[t].length/CAP[t]))));
-  const mk=(t,path,L,q,x)=>{const it=Object.assign({i:items.length,name:path.split('/').pop(),path,type:t,cell:ci,lvl:L,rot:t==='ssd',sc:q.sc,lx:q.x,lz:q.z,y:0,ps:0,pt:0,op:0,h:null,hc:1,col:hex(TYPES[t].col)},x);items.push(it);return it;};
-  for(let L=0;L<d.levels;L++)TT.forEach(t=>{
-   const fl=by[t].slice(L*CAP[t],(L+1)*CAP[t]);
-   if(t==='sata'){
-    /* все .md уровня — чипы внутри одного SATA-диска */
-    if(!fl.length)return;
-    const disk=mk('sata',c.n,L,fit(1,ZNS,FP.sata)[0],{name:'SATA · '+fl.length+' .md',n:fl.length});
-    fit(fl.length,BOARD,FP.chip).forEach((q,j)=>{mk('chip',fl[j],L,q,{par:disk.i});d.shown++;});
-    return;
-   }
-   fit(fl.length,t==='cpu'&&by.sata.length?ZNC:ZN[t],FP[t],t==='gpu').forEach((q,j)=>{mk(t,fl[j],L,q);d.shown++;});
+  /* медиа прямо в папке — SSD; медиа из подпапки (images/covers/…) — чипы в SATA-диске этой подпапки; .md — чипы в своём SATA-диске */
+  const by={cpu:[],gpu:[],ssd:[],sata:[]},d=dr[ci],TT=['cpu','gpu','ssd'],sub=new Map(),pre=c.n==='/'?'':c.n;
+  c.f.forEach(f=>{
+   const t=EXT[ext(f)],rel=f.slice(pre.length),k=rel.indexOf('/');
+   if(t==='ssd'&&k>0){const sn=rel.slice(0,k+1);if(!sub.has(sn))sub.set(sn,[]);sub.get(sn).push(f);}
+   else by[t].push(f);
   });
+  /* SATA-диски: по одному на уровень, до 12 чипов; длинный список делится на несколько дисков */
+  const disks=[],chunk=(lab,fl,media)=>{for(let j=0;j<fl.length;j+=CAP.sata)disks.push({lab,fl:fl.slice(j,j+CAP.sata),media});};
+  chunk('.md',by.sata,false);
+  [...sub].sort(([a],[b])=>a.localeCompare(b)).forEach(([sn,fl])=>chunk(sn,fl,true));
+  d.levels=Math.min(MAXLV,Math.max(1,disks.length,...TT.map(t=>Math.ceil(by[t].length/CAP[t]))));
+  const mk=(t,path,L,q,x)=>{const it=Object.assign({i:items.length,name:path.split('/').pop(),path,type:t,cell:ci,lvl:L,rot:t==='ssd',sc:q.sc,lx:q.x,lz:q.z,y:0,ps:0,pt:0,op:0,h:null,hc:1,base:TYPES[t].col},x);it.col=hex(it.base);items.push(it);return it;};
+  for(let L=0;L<d.levels;L++){
+   TT.forEach(t=>{
+    const fl=by[t].slice(L*CAP[t],(L+1)*CAP[t]);
+    fit(fl.length,t==='cpu'&&disks.length?ZNC:ZN[t],FP[t],t==='gpu').forEach((q,j)=>{mk(t,fl[j],L,q);d.shown++;});
+   });
+   const k=disks[L];if(!k)continue;
+   const disk=mk('sata',c.n,L,fit(1,ZNS,FP.sata)[0],{name:'SATA · '+(k.media?k.lab+' · '+k.fl.length:k.fl.length+' .md'),n:k.fl.length,lab:k.lab,media:k.media});
+   fit(k.fl.length,BOARD,FP.chip).forEach((q,j)=>{mk('chip',k.fl[j],L,q,{par:disk.i,media:k.media,base:k.media?'#8a5566':TYPES.chip.col});d.shown++;});
+  }
  });
  dr.forEach((d,i)=>{tapes[i].firstChild.textContent=d.n+(d.levels>1?' ×'+d.levels:'');});
  od=-1;sel=-1;
@@ -570,7 +580,7 @@ function showMon(){
  $('mt').textContent=!F?'':F.err?F.err:!F.ok?'загрузка…':F.media?'[медиафайл — просмотр]':F.text.split('\n').slice(0,10).map(s=>s.slice(0,44)).join('\n');
 }
 async function loadFile(it){
- const r=repos[cur],my=F={it,path:it.path,ok:false,dirty:false,text:'',sha:'',crlf:false,media:it.type==='ssd',url:'',mime:'',err:''};
+ const r=repos[cur],my=F={it,path:it.path,ok:false,dirty:false,text:'',sha:'',crlf:false,media:EXT[ext(it.path)]==='ssd',url:'',mime:'',err:''};
  showMon();
  try{
   const q='/repos/'+r.full_name+'/contents/'+encodeURI(it.path)+'?ref='+encodeURIComponent(r.default_branch);
@@ -700,14 +710,14 @@ function ui(){
  cl.hidden=od<0&&outId<0;
  cl.setAttribute('aria-label',outId>=0?'Вернуть деталь на место':sOpen>=0?'Закрыть SATA-диск':'Закрыть ящик');
  if(outId>=0){$('name').textContent=items[outId].name;$('meta').textContent='На стенде. Тап по монитору — редактор';}
- else if(on){const it=items[sel];$('name').textContent=it.name;$('meta').textContent=TYPES[it.type].name+', ящик '+CELLS[it.cell].n+'. Ещё тап — править';cc.value=toHex(it.col);}
- else if(sOpen>=0){const s2=items[sOpen];$('name').textContent='SATA-диск';$('meta').textContent='Чипов (.md): '+s2.n+', ящик '+CELLS[s2.cell].n+'. Тап по чипу — выбрать';}
+ else if(on){const it=items[sel];$('name').textContent=it.name;$('meta').textContent=(it.type==='chip'&&it.media?'Чип (медиа)':TYPES[it.type].name)+', ящик '+CELLS[it.cell].n+'. Ещё тап — править';cc.value=toHex(it.col);}
+ else if(sOpen>=0){const s2=items[sOpen];$('name').textContent='SATA-диск'+(s2.media?' '+s2.lab:'');$('meta').textContent=(s2.media?'Медиа из '+s2.lab+': ':'Чипов (.md): ')+s2.n+', ящик '+CELLS[s2.cell].n+'. Тап по чипу — выбрать';}
  else if(od>=0){const n=CELLS[od].f.length,sh2=dr[od].shown;$('name').textContent=CELLS[od].n;$('meta').textContent='Ящик открыт, файлов: '+n+(sh2<n?' (показано '+sh2+')':'');}
  else{$('name').textContent=repos[cur]?repos[cur].name:'cyr';$('meta').textContent=msg;}
 }
 tg.onclick=()=>menu(mb.hidden);
 cc.oninput=()=>paint(cc.value);
-rs.onclick=()=>{if(sel>=0){const it=items[sel];it.col=hex(TYPES[it.type].col);cc.value=TYPES[it.type].col;}};
+rs.onclick=()=>{if(sel>=0){const it=items[sel];it.col=hex(it.base);cc.value=it.base;}};
 cl.onclick=()=>{if(outId>=0){leave();return;}if(sOpen>=0){sOpen=-1;sel=-1;ui();return;}od=-1;lv=0;sel=-1;ui();};
 $('bg').oninput=e=>{bg=hex(e.target.value);document.documentElement.style.setProperty('--bg',e.target.value);};
 $('srv').onchange=e=>{if(!leaveOk()){e.target.value=cur;return;}loadServer(+e.target.value);};
