@@ -24,6 +24,8 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1
 .ib{flex:none;width:32px;height:32px;border:0;padding:0;border-radius:50%;display:grid;place-items:center;background:var(--card);color:var(--ink);cursor:pointer;box-shadow:var(--raise-s)}
 .ib svg{width:16px;height:16px;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;fill:none}
 #mb{margin-top:8px}
+.gps{flex:1 1 100%;font-size:11px;color:var(--sub);overflow-wrap:anywhere}
+#gp[aria-pressed="true"]{color:#1f9d55}
 .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
 .row label{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px}
 .sw{width:24px;height:24px;border-radius:50%;border:0;padding:0;cursor:pointer;box-shadow:3px 4px 7px var(--shd),-2px -2px 5px var(--shl),inset -3px -3px 5px rgba(0,0,0,.16),inset 3px 3px 5px rgba(255,255,255,.55)}
@@ -94,6 +96,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <div class="row" id="lvr" hidden><button id="lp" class="btn" aria-label="Ящик наружу">◂</button><span id="ll"></span><button id="ln" class="btn" aria-label="Ящик внутри ящика">▸</button></div>
 <div class="row"><button id="pu" class="btn" disabled>Вытащить и править</button></div>
 <div class="row"><button id="tb" class="btn">Планшет</button></div>
+<div class="row"><button id="gp" class="btn" aria-pressed="false">Включить WebGPU</button><span id="gps" class="gps"></span></div>
 <div class="row" id="sw"></div>
 <div class="row"><label>свой <input type="color" id="cc" value="#ffa51a" disabled></label>
 <button id="rs" class="btn" disabled>Сбросить</button></div>
@@ -115,13 +118,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <div id="ev" hidden></div>
 <div class="ef"><input id="ec" placeholder="Сообщение коммита" aria-label="Сообщение коммита"><button id="sv">Сохранить</button></div>
 </div>
+<script src="webgpu.js"></script>
 <script>
-(()=>{
+(async()=>{
 const $=id=>document.getElementById(id);
 const TOK=sessionStorage.getItem('cyr_token');
 if(!TOK){location.replace('index.html');return;}
-const cv=$('c'),gl=cv.getContext('webgl',{antialias:true});
-if(!gl){$('name').textContent='WebGL недоступен в этом браузере.';return;}
+let cv=$('c');
 const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
 const toHex=c=>'#'+c.map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
 /* цвет для карты нажатий: 16-битный номер объекта в красном и зелёном каналах */
@@ -226,36 +229,81 @@ function mkFrame(n){
 }
 let frame=mkFrame(1);
 
-/* ---- WebGL: скруглённые боксы + цилиндры (вентиляторы) ---- */
-const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;};
-const FS='precision mediump float;varying vec3 vn;uniform vec3 col,vd;uniform float pick,hi;void main(){if(pick>.5){gl_FragColor=vec4(col,1.);return;}vec3 n=normalize(vn),L=normalize(vec3(-.45,.85,.5));float h=dot(n,L)*.5+.5;vec3 c=col*(.62+.5*h*h);c=mix(c,c*vec3(.9,.94,1.06),1.-h);float sp=pow(max(dot(n,normalize(L+vd)),0.),22.)*.22;float rim=pow(1.-max(dot(n,vd),0.),3.)*.2;gl_FragColor=vec4(c+vec3(sp+rim+hi),1.);}';
-function prog(vs,attr){
- const p=gl.createProgram();
- gl.attachShader(p,sh(gl.VERTEX_SHADER,vs));gl.attachShader(p,sh(gl.FRAGMENT_SHADER,FS));
- gl.bindAttribLocation(p,0,attr);gl.linkProgram(p);return p;
-}
-const pg1=prog('attribute vec3 g;uniform mat4 vp;uniform vec3 t,s;uniform float r;varying vec3 vn;void main(){vec3 a=abs(g),sg=sign(g);vn=normalize(sg*max((a-.5)*2.,0.));vec3 b=s*.5-r;gl_Position=vp*vec4(sg*min(a*2.,1.)*b+r*vn+t,1.);}','g');
-const pg2=prog('attribute vec4 cp;uniform mat4 vp;uniform vec3 t,s;varying vec3 vn;void main(){vn=cp.w==0.?normalize(vec3(cp.xy,0.)):vec3(0.,0.,cp.w);gl_Position=vp*vec4(cp.xyz*s+t,1.);}','cp');
-const lk=(p,a)=>{const o={};a.forEach(k=>o[k]=gl.getUniformLocation(p,k));return o;};
-const L1=lk(pg1,['vp','t','s','col','pick','hi','r','vd']),L2=lk(pg2,['vp','t','s','col','pick','hi','vd']);
-
+/* ---- геометрия: скруглённый бокс (сетка на гранях куба) и цилиндр (вентиляторы) ---- */
 const G=[-1,-.83,-.67,-.5,.5,.67,.83,1],V=[];
 for(let a=0;a<3;a++)for(const f of[1,-1]){
  const u=(a+1)%3,v=(a+2)%3;
  for(let i=0;i<7;i++)for(let j=0;j<7;j++)for(const[q,w]of[[0,0],[1,0],[1,1],[0,0],[1,1],[0,1]]){
   const p=[0,0,0];p[a]=f;p[u]=G[i+q];p[v]=G[j+w];V.push(...p);
  }}
-const NV=V.length/3;
-const bbuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,bbuf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(V),gl.STATIC_DRAW);
 const CV=[],N=28;
 for(let i=0;i<N;i++){
  const a0=i/N*6.2832,a1=(i+1)/N*6.2832,x0=Math.cos(a0)*.5,y0=Math.sin(a0)*.5,x1=Math.cos(a1)*.5,y1=Math.sin(a1)*.5;
  CV.push(x0,y0,-.5,0,x1,y1,-.5,0,x1,y1,.5,0,x0,y0,-.5,0,x1,y1,.5,0,x0,y0,.5,0,
   0,0,.5,1,x0,y0,.5,1,x1,y1,.5,1,0,0,-.5,-1,x1,y1,-.5,-1,x0,y0,-.5,-1);
 }
-const NC=CV.length/4,cbuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,cbuf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(CV),gl.STATIC_DRAW);
-gl.bindBuffer(gl.ARRAY_BUFFER,bbuf);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
-gl.enable(gl.DEPTH_TEST);
+
+/* ---- WebGL-рендер (по умолчанию). Интерфейс общий с WebGPU-рендером из webgpu.js ---- */
+function glR(){
+ const gl=cv.getContext('webgl',{antialias:true});
+ if(!gl)return null;
+ const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;};
+ const FS='precision mediump float;varying vec3 vn;uniform vec3 col,vd;uniform float pick,hi;void main(){if(pick>.5){gl_FragColor=vec4(col,1.);return;}vec3 n=normalize(vn),L=normalize(vec3(-.45,.85,.5));float h=dot(n,L)*.5+.5;vec3 c=col*(.62+.5*h*h);c=mix(c,c*vec3(.9,.94,1.06),1.-h);float sp=pow(max(dot(n,normalize(L+vd)),0.),22.)*.22;float rim=pow(1.-max(dot(n,vd),0.),3.)*.2;gl_FragColor=vec4(c+vec3(sp+rim+hi),1.);}';
+ function prog(vs,attr){
+  const p=gl.createProgram();
+  gl.attachShader(p,sh(gl.VERTEX_SHADER,vs));gl.attachShader(p,sh(gl.FRAGMENT_SHADER,FS));
+  gl.bindAttribLocation(p,0,attr);gl.linkProgram(p);return p;
+ }
+ const pg1=prog('attribute vec3 g;uniform mat4 vp;uniform vec3 t,s;uniform float r;varying vec3 vn;void main(){vec3 a=abs(g),sg=sign(g);vn=normalize(sg*max((a-.5)*2.,0.));vec3 b=s*.5-r;gl_Position=vp*vec4(sg*min(a*2.,1.)*b+r*vn+t,1.);}','g');
+ const pg2=prog('attribute vec4 cp;uniform mat4 vp;uniform vec3 t,s;varying vec3 vn;void main(){vn=cp.w==0.?normalize(vec3(cp.xy,0.)):vec3(0.,0.,cp.w);gl_Position=vp*vec4(cp.xyz*s+t,1.);}','cp');
+ const lk=(p,a)=>{const o={};a.forEach(k=>o[k]=gl.getUniformLocation(p,k));return o;};
+ const L1=lk(pg1,['vp','t','s','col','pick','hi','r','vd']),L2=lk(pg2,['vp','t','s','col','pick','hi','vd']);
+ const NV=V.length/3,NC=CV.length/4;
+ const bbuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,bbuf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(V),gl.STATIC_DRAW);
+ const cbuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,cbuf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(CV),gl.STATIC_DRAW);
+ gl.bindBuffer(gl.ARRAY_BUFFER,bbuf);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+ gl.enable(gl.DEPTH_TEST);
+ let vp=null,pk=0,vd=[0,0,1],hi=0;
+ return{name:'WebGL',label:'',
+  begin(pick,bgc,VP,v){
+   vp=VP;pk=pick?1:0;vd=v;hi=0;
+   gl.viewport(0,0,cv.width,cv.height);
+   if(pick)gl.clearColor(0,0,0,1);else gl.clearColor(bgc[0],bgc[1],bgc[2],1);
+   gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+   gl.useProgram(pg1);
+   gl.uniformMatrix4fv(L1.vp,false,vp);gl.uniform1f(L1.pick,pk);gl.uniform1f(L1.hi,0);gl.uniform3fv(L1.vd,vd);
+  },
+  hi(v){hi=v;gl.uniform1f(L1.hi,v);},
+  box(t,s,c,r){gl.uniform3fv(L1.t,t);gl.uniform3fv(L1.s,s);gl.uniform3fv(L1.col,c);gl.uniform1f(L1.r,r);gl.drawArrays(gl.TRIANGLES,0,NV);},
+  cyl(t,s,c){
+   gl.useProgram(pg2);gl.bindBuffer(gl.ARRAY_BUFFER,cbuf);gl.vertexAttribPointer(0,4,gl.FLOAT,false,0,0);
+   gl.uniformMatrix4fv(L2.vp,false,vp);gl.uniform1f(L2.pick,pk);gl.uniform1f(L2.hi,hi);gl.uniform3fv(L2.vd,vd);
+   gl.uniform3fv(L2.t,t);gl.uniform3fv(L2.s,s);gl.uniform3fv(L2.col,c);gl.drawArrays(gl.TRIANGLES,0,NC);
+   gl.useProgram(pg1);gl.bindBuffer(gl.ARRAY_BUFFER,bbuf);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+  },
+  end(){},
+  read(x,y){const px=new Uint8Array(4);gl.readPixels(x,cv.height-y-1,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);return Promise.resolve(px);}
+ };
+}
+
+/* ---- выбор рендера: WebGPU, если включён в меню (localStorage cyr_gpu=1) и браузер его поддерживает, иначе WebGL ---- */
+const WANT_GPU=localStorage.getItem('cyr_gpu')==='1';
+let R=null,gpuErr=sessionStorage.getItem('cyr_gpu_err')||'';
+sessionStorage.removeItem('cyr_gpu_err');
+if(WANT_GPU){
+ try{
+  if(typeof window.cyrWebGPU!=='function')throw new Error('не загрузился webgpu.js');
+  R=await window.cyrWebGPU(cv,{V,CV});
+ }catch(x){
+  gpuErr=x&&x.message||String(x);R=null;
+  console.warn('WebGPU не завёлся, возвращаюсь на WebGL:',x);
+  /* у canvas мог остаться контекст webgpu — подменяем его чистым */
+  const n=cv.cloneNode(false);cv.replaceWith(n);cv=n;
+ }
+}
+if(!R)R=glR();
+if(!R){$('name').textContent='Ни WebGL, ни WebGPU недоступны в этом браузере.';return;}
+R.onlost=m=>{sessionStorage.setItem('cyr_gpu_err','WebGPU: '+m);localStorage.removeItem('cyr_gpu');location.reload();};
 
 const mul=(a,b)=>{const o=new Array(16).fill(0);for(let c=0;c<4;c++)for(let r=0;r<4;r++)for(let k=0;k<4;k++)o[c*4+r]+=a[k*4+r]*b[c*4+k];return o;};
 const rotY=a=>{const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1];};
@@ -270,14 +318,9 @@ function resize(){
  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
  W=w;H=h;
 }
-function box(t,s,c,r){gl.uniform3fv(L1.t,t);gl.uniform3fv(L1.s,s);gl.uniform3fv(L1.col,c);gl.uniform1f(L1.r,Math.min(r===undefined?.2:r,.45*Math.min(s[0],s[1],s[2])));gl.drawArrays(gl.TRIANGLES,0,NV);}
-function cyl(t,s,c){
- gl.useProgram(pg2);gl.bindBuffer(gl.ARRAY_BUFFER,cbuf);gl.vertexAttribPointer(0,4,gl.FLOAT,false,0,0);
- gl.uniformMatrix4fv(L2.vp,false,VP);gl.uniform1f(L2.pick,S.pick);gl.uniform1f(L2.hi,S.hi);gl.uniform3fv(L2.vd,S.vd);
- gl.uniform3fv(L2.t,t);gl.uniform3fv(L2.s,s);gl.uniform3fv(L2.col,c);gl.drawArrays(gl.TRIANGLES,0,NC);
- gl.useProgram(pg1);gl.bindBuffer(gl.ARRAY_BUFFER,bbuf);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
-}
-function setHi(v){S.hi=v;gl.uniform1f(L1.hi,v);}
+function box(t,s,c,r){R.box(t,s,c,Math.min(r===undefined?.2:r,.45*Math.min(s[0],s[1],s[2])));}
+function cyl(t,s,c){R.cyl(t,s,c);}
+function setHi(v){S.hi=v;R.hi(v);}
 
 /* z центра лотка уровня L: основной лоток выезжает вместе с ящиком, вложенные выдвигаются вперёд один из другого */
 function trayZ(d,L){let z=Z0-1.7+d.a*TRAVEL;for(let j=1;j<=L;j++)z+=d.nl[j]*NEST;return z;}
@@ -365,15 +408,12 @@ function draw(pick){
  const T=[1,0,0,0,0,1,0,0,0,0,1,0,-cam.x,-cam.y,-cam.z,1];
  VP=mul(P,mul(rotX(e),mul(rotY(yaw),T)));
  S.pick=pick?1:0;S.hi=0;S.vd=[-Math.sin(yaw)*Math.cos(e),Math.sin(e),Math.cos(yaw)*Math.cos(e)];
- gl.viewport(0,0,W,H);
- if(pick)gl.clearColor(0,0,0,1);else gl.clearColor(bg[0],bg[1],bg[2],1);
- gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
- gl.useProgram(pg1);
- gl.uniformMatrix4fv(L1.vp,false,VP);gl.uniform1f(L1.pick,S.pick);gl.uniform1f(L1.hi,0);gl.uniform3fv(L1.vd,S.vd);
+ R.begin(pick,bg,VP,S.vd);
  for(const[t,s,c,r]of frame)box(t,s,pick?[0,0,0]:hex(c),r);
  port(pick);stand(pick);
  for(const d of dr)if(d.col<ncol)drawer(d,pick);
  for(const it of items)parts(it,pick);
+ R.end();
 }
 
 /* ---- подписи: кусок малярного скотча в левом верхнем углу фасада ---- */
@@ -616,9 +656,7 @@ cv.addEventListener('pointermove',e=>{
 cv.addEventListener('pointerup',e=>{
  if(down&&down.m<6){
   draw(true);
-  const px=new Uint8Array(4);
-  gl.readPixels(Math.floor(e.clientX*dpr),Math.floor(H-e.clientY*dpr-1),1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);
-  tap(px[0]+px[1]*256);
+  R.read(Math.floor(e.clientX*dpr),Math.floor(e.clientY*dpr)).then(px=>tap(px[0]+px[1]*256));
  }
  down=null;
 });
@@ -675,6 +713,19 @@ $('bg').oninput=e=>{bg=hex(e.target.value);document.documentElement.style.setPro
 $('srv').onchange=e=>{if(!leaveOk()){e.target.value=cur;return;}loadServer(+e.target.value);};
 $('pp').onclick=()=>{if(!leaveOk())return;pg--;build();};
 $('pn').onclick=()=>{if(!leaveOk())return;pg++;build();};
+/* ---- переключатель WebGPU: canvas нельзя перевести между webgl и webgpu на лету, поэтому выбор запоминается и страница перезагружается ---- */
+const gp=$('gp'),gps=$('gps'),GPU_OK=!!navigator.gpu&&window.isSecureContext,isGpu=R.name==='WebGPU';
+gp.textContent=isGpu?'WebGPU: вкл':'Включить WebGPU';
+gp.setAttribute('aria-pressed',isGpu);
+gps.textContent=isGpu?'Рендер: WebGPU'+(R.label?' ('+R.label+')':'')
+ :gpuErr?'WebGPU не завёлся: '+gpuErr+'. Рендер: WebGL'
+ :GPU_OK?'Рендер: WebGL':'Браузер без WebGPU (нужен Chrome/Edge 113+, Safari 26+, Firefox 141+; в Chrome на Linux/Android может понадобиться chrome://flags/#enable-unsafe-webgpu). Рендер: WebGL';
+gp.onclick=()=>{
+ if(!isGpu&&!GPU_OK){gps.textContent='WebGPU недоступен в этом браузере: '+(window.isSecureContext?'нет navigator.gpu':'нужен https')+'. Рендер: WebGL';return;}
+ if(!leaveOk())return;
+ if(isGpu)localStorage.removeItem('cyr_gpu');else localStorage.setItem('cyr_gpu','1');
+ location.reload();
+};
 $('lo').onclick=()=>{if(!leaveOk())return;sessionStorage.removeItem('cyr_token');location.replace('index.html');};
 build();loadRepos();
 
