@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>cyr — тест сервера</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#fff;--sub:#c9d6ff;--panel:rgba(8,22,70,.84);--line:rgba(255,255,255,.25);--bg:#1b45c4;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--panel:rgba(4,12,44,.88);--sub:#b7c8ff}}
+:root[data-theme="dark"]{--panel:rgba(4,12,44,.88);--sub:#b7c8ff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden}
+#c{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#hud{position:fixed;left:14px;top:calc(12px + env(safe-area-inset-top,0px));pointer-events:none;text-shadow:0 1px 4px rgba(0,0,40,.6)}
+#hud h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.02em}
+#hud p{margin:2px 0 8px;color:var(--sub);font-size:13px}
+.lg{font-size:13px;display:flex;align-items:center;gap:7px;margin:2px 0}
+.lg i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.tag{position:fixed;transform:translate(-50%,-50%);font:600 13px "Segoe UI",system-ui,sans-serif;color:#fff;text-shadow:0 1px 4px rgba(0,0,40,.8);pointer-events:none;white-space:nowrap}
+#panel{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-width:460px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+#name{font-weight:700;font-size:16px}
+#meta{color:var(--sub);font-size:13px;margin-bottom:8px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+.row label{font-size:13px;color:var(--sub);display:flex;align-items:center;gap:6px}
+.sw{width:28px;height:28px;border-radius:6px;border:2px solid var(--line);padding:0;cursor:pointer}
+.sw:disabled,#rs:disabled,#cc:disabled{opacity:.4;cursor:default}
+input[type=color]{width:34px;height:28px;border:0;padding:0;background:none}
+button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#rs{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 10px;font:inherit;font-size:13px;cursor:pointer}
+:root{--card:#e4ecff;--ink:#1b2767;--sub:#4b5b9e;--shd:rgba(28,48,140,.38);--shl:rgba(255,255,255,.7);--ih:rgba(255,255,255,.7);--id:rgba(70,95,190,.25);--bg:#7ea6ff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--card:#34458f;--ink:#f0f4ff;--sub:#c3d0ff;--shd:rgba(5,12,50,.55);--shl:rgba(150,175,255,.28);--ih:rgba(190,205,255,.25);--id:rgba(0,0,40,.4)}}
+:root[data-theme="dark"]{--card:#34458f;--ink:#f0f4ff;--sub:#c3d0ff;--shd:rgba(5,12,50,.55);--shl:rgba(150,175,255,.28);--ih:rgba(190,205,255,.25);--id:rgba(0,0,40,.4)}
+html,body{font-family:"Nunito","Varela Round","SF Pro Rounded","Segoe UI",system-ui,sans-serif}
+#hud,#panel{background:var(--card);color:var(--ink);border:0;border-radius:30px;text-shadow:none;box-shadow:10px 12px 26px var(--shd),-8px -8px 20px var(--shl),inset -7px -7px 14px var(--id),inset 7px 7px 14px var(--ih)}
+#hud{padding:12px 18px;left:14px;border-radius:26px}
+#panel{padding:16px 20px}
+#name,#hud h1{font-weight:800}
+.tag{background:var(--card);color:var(--ink);font-family:inherit;font-weight:800;padding:5px 14px;border-radius:999px;text-shadow:none;box-shadow:4px 5px 10px var(--shd),-3px -3px 8px var(--shl),inset -3px -3px 6px var(--id),inset 3px 3px 6px var(--ih)}
+.lg i{width:13px;height:13px;border-radius:50%;box-shadow:inset -2px -2px 4px rgba(0,0,0,.2),inset 2px 2px 4px rgba(255,255,255,.6)}
+.sw{border:0;width:30px;height:30px;border-radius:50%;box-shadow:3px 4px 8px var(--shd),-2px -2px 6px var(--shl),inset -3px -3px 6px rgba(0,0,0,.16),inset 3px 3px 6px rgba(255,255,255,.55)}
+#rs{background:var(--card);color:var(--ink);border:0;border-radius:999px;padding:8px 16px;font-weight:800;box-shadow:4px 5px 10px var(--shd),-3px -3px 8px var(--shl),inset -3px -3px 6px var(--id),inset 3px 3px 6px var(--ih)}
+input[type=color]{-webkit-appearance:none;appearance:none;width:34px;height:34px;padding:4px;border-radius:50%;background:var(--card);box-shadow:3px 4px 8px var(--shd),-2px -2px 6px var(--shl),inset -2px -2px 5px var(--id),inset 2px 2px 5px var(--ih)}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
+input[type=color]::-moz-color-swatch{border:0;border-radius:50%}
+button:focus-visible,input:focus-visible{outline:3px solid #4f6cff;outline-offset:3px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><h1>cyr-test</h1><p>тестовый сервер: 3 ячейки, 8 файлов</p>
+<div class="lg"><i style="background:#ffb68a"></i>Процессор: .py .js .sh</div>
+<div class="lg"><i style="background:#8de0b7"></i>Видеокарта: .html .css</div>
+<div class="lg"><i style="background:#f1ecff"></i>SSD: .png .mp4 .mp3</div></div>
+<div id="labels"></div>
+<div id="panel">
+<div id="name">Выберите деталь</div>
+<div id="meta">Нажмите на деталь. Перетаскивание вращает сцену.</div>
+<div class="row"><span id="sw" class="row" style="margin:0;gap:6px"></span>
+<label>свой <input type="color" id="cc" value="#ffb454" disabled></label>
+<button id="rs" disabled>Сбросить цвет</button></div>
+<div class="row"><label>Фон <input type="color" id="bg" value="#7ea6ff"></label></div>
+</div>
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const cv=$('c'),gl=cv.getContext('webgl',{antialias:true});
+if(!gl){$('name').textContent='WebGL недоступен в этом браузере.';return;}
+const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
+const toHex=c=>'#'+c.map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
+
+/* ---- данные: сервер, ячейки, файлы ---- */
+const TYPES={
+ cpu:{name:'Процессор',col:'#ffb68a',parts:[
+  {o:[0,.05,0],s:[1.32,.1,1.32],f:.4},{o:[0,.17,0],s:[1.2,.34,1.2],f:1},{o:[0,.41,0],s:[.7,.14,.7],f:.55}]},
+ gpu:{name:'Видеокарта',col:'#8de0b7',parts:[
+  {o:[0,.15,0],s:[2.6,.3,.95],f:1},{o:[-.6,.35,0],s:[.72,.1,.72],f:.35},{o:[.6,.35,0],s:[.72,.1,.72],f:.35},
+  {o:[-1.3,.3,0],s:[.1,.6,.95],c:'#dfe6f7'}]},
+ ssd:{name:'SSD',col:'#f1ecff',parts:[
+  {o:[0,.12,0],s:[2,.24,1.1],f:1},{o:[.15,.25,0],s:[1.2,.04,.7],f:.5},{o:[-1.12,.08,0],s:[.24,.16,.9],c:'#ffd98a'}]}
+};
+const EXT={py:'cpu',js:'cpu',sh:'cpu',html:'gpu',css:'gpu',png:'ssd',mp4:'ssd',mp3:'ssd'};
+const CELLS=[
+ {n:'core/',f:['main.py','app.js','build.sh']},
+ {n:'web/',f:['index.html','style.css']},
+ {n:'media/',f:['cover.png','intro.mp4','theme.mp3']}];
+const CX=[-4.2,0,4.2],items=[];
+CELLS.forEach((c,ci)=>c.f.forEach((f,i)=>{
+ const t=EXT[f.split('.').pop()];
+ items.push({id:items.length+1,name:f,type:t,cell:c.n,x:CX[ci],z:(i-(c.f.length-1)/2)*1.45,y:0,col:hex(TYPES[t].col)});
+}));
+const statics=[[[0,-.45,0],[13,.4,5.6],'#5a82e6']];
+CX.forEach(x=>{
+ statics.push([[x,-.125,0],[3.7,.25,4.6],'#a9c4ff']);
+ statics.push([[x,-.45,2.82],[.3,.1,.04],'#8de0b7']);
+});
+
+/* ---- WebGL ---- */
+const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;};
+const pg=gl.createProgram();
+gl.attachShader(pg,sh(gl.VERTEX_SHADER,'attribute vec3 g;uniform mat4 vp;uniform vec3 t,s;uniform float r;varying vec3 vn;void main(){vec3 a=abs(g),sg=sign(g);vn=normalize(sg*max((a-.5)*2.,0.));vec3 b=s*.5-r;gl_Position=vp*vec4(sg*min(a*2.,1.)*b+r*vn+t,1.);}'));
+gl.attachShader(pg,sh(gl.FRAGMENT_SHADER,'precision mediump float;varying vec3 vn;uniform vec3 col,vd;uniform float pick,hi;void main(){if(pick>.5){gl_FragColor=vec4(col,1.);return;}vec3 n=normalize(vn),L=normalize(vec3(-.45,.85,.5));float h=dot(n,L)*.5+.5;vec3 c=col*(.62+.5*h*h);c=mix(c,c*vec3(.9,.94,1.06),1.-h);float sp=pow(max(dot(n,normalize(L+vd)),0.),22.)*.22;float rim=pow(1.-max(dot(n,vd),0.),3.)*.2;gl_FragColor=vec4(c+vec3(sp+rim+hi),1.);}'));
+gl.linkProgram(pg);gl.useProgram(pg);
+const U=k=>gl.getUniformLocation(pg,k);
+const uVP=U('vp'),uT=U('t'),uS=U('s'),uC=U('col'),uP=U('pick'),uH=U('hi'),uR=U('r'),uV=U('vd');
+const G=[-1,-.83,-.67,-.5,.5,.67,.83,1],V=[];
+for(let a=0;a<3;a++)for(const f of[1,-1]){
+ const u=(a+1)%3,v=(a+2)%3;
+ for(let i=0;i<7;i++)for(let j=0;j<7;j++)for(const[q,w]of[[0,0],[1,0],[1,1],[0,0],[1,1],[0,1]]){
+  const p=[0,0,0];p[a]=f;p[u]=G[i+q];p[v]=G[j+w];V.push(...p);
+ }}
+const NV=V.length/3;
+const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(V),gl.STATIC_DRAW);
+{const l=gl.getAttribLocation(pg,'g');gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,3,gl.FLOAT,false,0,0);}
+gl.enable(gl.DEPTH_TEST);
+
+const mul=(a,b)=>{const o=new Array(16).fill(0);for(let c=0;c<4;c++)for(let r=0;r<4;r++)for(let k=0;k<4;k++)o[c*4+r]+=a[k*4+r]*b[c*4+k];return o;};
+const rotY=a=>{const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1];};
+const rotX=a=>{const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1];};
+
+let yaw=Math.PI/4,sel=-1,bg=hex('#7ea6ff'),VP=null,W=1,H=1,dpr=1;
+function resize(){
+ dpr=Math.min(devicePixelRatio||1,2);
+ const w=Math.floor(innerWidth*dpr),h=Math.floor(innerHeight*dpr);
+ if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
+ W=w;H=h;
+}
+function box(t,s,c){gl.uniform3fv(uT,t);gl.uniform3fv(uS,s);gl.uniform3fv(uC,c);gl.uniform1f(uR,Math.min(.2,.45*Math.min(s[0],s[1],s[2])));gl.drawArrays(gl.TRIANGLES,0,NV);}
+function draw(pick){
+ const asp=W/H,sc=Math.max(5.6,8.2/asp);
+ const P=[1/(sc*asp),0,0,0,0,1/sc,0,0,0,0,-.02,0,0,0,0,1];
+ VP=mul(P,mul(rotX(.56),rotY(yaw)));
+ gl.viewport(0,0,W,H);
+ if(pick)gl.clearColor(0,0,0,1);else gl.clearColor(bg[0],bg[1],bg[2],1);
+ gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+ gl.uniformMatrix4fv(uVP,false,VP);gl.uniform1f(uP,pick?1:0);gl.uniform3f(uV,-Math.sin(yaw)*Math.cos(.56),Math.sin(.56),Math.cos(yaw)*Math.cos(.56));
+ gl.uniform1f(uH,0);
+ for(const[t,s,c]of statics)box(t,s,pick?[0,0,0]:hex(c));
+ for(const it of items){
+  gl.uniform1f(uH,!pick&&it.id-1===sel?.14:0);
+  for(const p of TYPES[it.type].parts){
+   const col=pick?[it.id/255,0,0]:p.c?hex(p.c):it.col.map(v=>v*p.f);
+   box([it.x+p.o[0],it.y+p.o[1],it.z+p.o[2]],p.s,col);
+  }
+ }
+}
+
+/* ---- подписи ячеек ---- */
+const tags=CELLS.map(c=>{const d=document.createElement('div');d.className='tag';d.textContent=c.n;$('labels').appendChild(d);return d;});
+function place(){
+ CX.forEach((x,i)=>{
+  const p=[x,-.5,3.5,1],o=[0,0,0,0];
+  for(let r=0;r<4;r++)for(let k=0;k<4;k++)o[r]+=VP[k*4+r]*p[k];
+  tags[i].style.left=((o[0]*.5+.5)*innerWidth)+'px';
+  tags[i].style.top=((1-(o[1]*.5+.5))*innerHeight)+'px';
+ });
+}
+
+/* ---- ввод ---- */
+let down=null;
+cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,m:0};cv.setPointerCapture(e.pointerId);});
+cv.addEventListener('pointermove',e=>{
+ if(!down)return;
+ const dx=e.clientX-down.x;down.m+=Math.abs(dx)+Math.abs(e.clientY-down.y);
+ yaw+=dx*.008;down.x=e.clientX;down.y=e.clientY;
+});
+cv.addEventListener('pointerup',e=>{
+ if(down&&down.m<6){
+  draw(true);
+  const px=new Uint8Array(4);
+  gl.readPixels(Math.floor(e.clientX*dpr),Math.floor(H-e.clientY*dpr-1),1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);
+  select(px[0]>=1&&px[0]<=items.length?px[0]-1:-1);
+ }
+ down=null;
+});
+
+/* ---- панель ---- */
+const sw=$('sw'),cc=$('cc'),rs=$('rs');
+['#ffb68a','#8de0b7','#f1ecff','#ff9fb8','#c3b0ff','#8fd8ff','#ffe58a','#ffa57a'].forEach(c=>{
+ const b=document.createElement('button');b.className='sw';b.style.background=c;b.disabled=true;b.setAttribute('aria-label','Цвет '+c);
+ b.onclick=()=>paint(c);sw.appendChild(b);
+});
+function paint(c){if(sel<0)return;items[sel].col=hex(c);cc.value=c;}
+function select(i){
+ sel=i;const on=i>=0;
+ sw.querySelectorAll('button').forEach(b=>b.disabled=!on);cc.disabled=rs.disabled=!on;
+ if(on){const it=items[i];$('name').textContent=it.name;$('meta').textContent=TYPES[it.type].name+', ячейка '+it.cell;cc.value=toHex(it.col);}
+ else{$('name').textContent='Выберите деталь';$('meta').textContent='Нажмите на деталь. Перетаскивание вращает сцену.';}
+}
+cc.oninput=()=>paint(cc.value);
+rs.onclick=()=>{if(sel>=0){const it=items[sel];it.col=hex(TYPES[it.type].col);cc.value=TYPES[it.type].col;}};
+$('bg').oninput=e=>{bg=hex(e.target.value);document.documentElement.style.setProperty('--bg',e.target.value);};
+
+/* ---- цикл ---- */
+(function frame(){
+ resize();
+ items.forEach((it,i)=>{it.y+=((i===sel?.35:0)-it.y)*.18;});
+ draw(false);place();
+ requestAnimationFrame(frame);
+})();
+})();
+</script>
+</body>
+</html>
