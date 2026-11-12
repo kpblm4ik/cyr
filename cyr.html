@@ -90,16 +90,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <div id="mb" hidden>
 <div class="row"><select id="srv" aria-label="Сервер (репозиторий)"></select></div>
 <div class="row" id="pgr" hidden><button id="pp" class="btn" aria-label="Назад">‹</button><span id="pl"></span><button id="pn" class="btn" aria-label="Дальше">›</button></div>
+<div class="row" id="lvr" hidden><button id="lp" class="btn" aria-label="Ящик наружу">◂</button><span id="ll"></span><button id="ln" class="btn" aria-label="Ящик внутри ящика">▸</button></div>
 <div class="row"><button id="pu" class="btn" disabled>Вытащить и править</button></div>
 <div class="row"><button id="tb" class="btn">Планшет</button></div>
 <div class="row" id="sw"></div>
-<div class="row"><label>свой <input type="color" id="cc" value="#ffb68a" disabled></label>
+<div class="row"><label>свой <input type="color" id="cc" value="#ffa51a" disabled></label>
 <button id="rs" class="btn" disabled>Сбросить</button></div>
 <div class="row"><label>Фон <input type="color" id="bg" value="#7ea6ff"></label><button id="lo" class="btn">Выйти</button></div>
 <div class="row" style="display:block">
-<div class="lg"><i style="background:#ffb68a"></i>Процессор: скрипты</div>
-<div class="lg"><i style="background:#8a919f"></i>RTX 4080: html, css</div>
-<div class="lg"><i style="background:#f1ecff"></i>SSD: фото, видео, аудио</div></div>
+<div class="lg"><i style="background:#ffa51a"></i>Процессор: скрипты (до 4)</div>
+<div class="lg"><i style="background:#2fc24a"></i>RTX 4080: html, css (до 8)</div>
+<div class="lg"><i style="background:#ffe3d6"></i>SSD: фото, видео, аудио (до 12)</div></div>
 </div>
 </div>
 <div id="tab" class="tab off">
@@ -121,6 +122,8 @@ const cv=$('c'),gl=cv.getContext('webgl',{antialias:true});
 if(!gl){$('name').textContent='WebGL недоступен в этом браузере.';return;}
 const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
 const toHex=c=>'#'+c.map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
+/* цвет для карты нажатий: 16-битный номер объекта в красном и зелёном каналах */
+const pc=id=>[(id&255)/255,(id>>8)/255,0];
 
 /* ---- данные: сервер (репо) → ящики (папки) → детали (файлы) ----
    part: {o:центр, s:размер, f:множитель цвета детали | c:фиксированный цвет, k:1 — цилиндр вдоль Z} */
@@ -144,10 +147,10 @@ const gpuParts=[
  {o:[-1.18,.62,0],s:[.05,.1,.26],c:BLK},{o:[-1.18,.82,0],s:[.05,.1,.26],c:BLK},
  {o:[0,.03,0],s:[1.2,.06,.1],c:'#ffd98a'}];
 const TYPES={
- cpu:{name:'Процессор',col:'#ffb68a',parts:[
+ cpu:{name:'Процессор',col:'#ffa51a',parts:[
   {o:[0,.04,0],s:[1.05,.08,1.05],f:.4},{o:[0,.14,0],s:[.95,.2,.95],f:1},{o:[0,.27,0],s:[.55,.06,.55],f:.55}]},
- gpu:{name:'RTX 4080',col:'#8a919f',parts:gpuParts},
- ssd:{name:'SSD',col:'#f1ecff',parts:[
+ gpu:{name:'RTX 4080',col:'#2fc24a',parts:gpuParts},
+ ssd:{name:'SSD',col:'#ffe3d6',parts:[
   {o:[0,.09,0],s:[1.7,.18,.9],f:1},{o:[.1,.2,0],s:[1,.03,.55],f:.5},{o:[-.95,.06,0],s:[.2,.12,.7],c:'#ffd98a'}]}
 };
 /* ребристая решётка: повторяем деталь p по смещениям p.x вдоль X */
@@ -160,11 +163,21 @@ const EXT={};
  .forEach(([t,s])=>s.split(' ').forEach(e=>EXT[e]=t));
 const MIME={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',bmp:'image/bmp',ico:'image/x-icon',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm',mkv:'video/x-matroska',avi:'video/x-msvideo',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',flac:'audio/flac',m4a:'audio/mp4'};
 const ext=f=>f.split('.').pop().toLowerCase();
-/* дорожки в лотке: процессоры сзади, видеокарта посередине, SSD спереди; LW — ширина детали, MAXL — максимум на дорожку */
-const LZ={cpu:-.75,gpu:.45,ssd:1.35},LW={cpu:1.1,gpu:2.45,ssd:2},MAXL=6;
+/* раскладка лотка по эскизу: процессоры сзади слева (до 4), SSD сзади справа узкой полосой (до 12), видеокарты спереди во всю ширину (до 8).
+   ZN — зона в координатах лотка (x от центра, z от центра лотка), FP — габарит детали (SSD лежит повёрнутым).
+   Не поместилось — следующий уровень: ещё один ящик внутри ящика (до MAXLV уровней). */
+const CAP={cpu:4,gpu:8,ssd:12},MAXLV=6,NEST=3.5;
+const ZN={cpu:{x0:-1.76,x1:.08,z0:-1.3,z1:-.06},ssd:{x0:1.09,x1:1.85,z0:-1.27,z1:.32},gpu:{x0:-1.88,x1:1.89,z0:.41,z1:1.45}};
+const FP={cpu:[1.05,1.05],gpu:[2.45,.75],ssd:[.9,1.9]};
+function fit(n,z,fp){
+ if(!n)return[];
+ const w=z.x1-z.x0,h=z.z1-z.z0;let best=null;
+ for(let c=1;c<=n;c++){const r=Math.ceil(n/c),s=Math.min(1,w/c/fp[0],h/r/fp[1]);if(!best||s>best.s)best={c,r,s};}
+ return Array.from({length:n},(_,i)=>({x:z.x0+(i%best.c+.5)*w/best.c,z:z.z0+(Math.floor(i/best.c)+.5)*h/best.r,sc:best.s}));
+}
 const YC=[5.74,4.29,2.84,1.39],Z0=1.95,TRAVEL=3,STX=-20;
-const dr=YC.map((yc,i)=>({n:'',yc,a:0,id:i+1,on:false}));
-let repos=[],cur=0,cellsAll=[],pg=0,CELLS=[],items=[],msg='',tabOn=false,fs=false,fsrc='',edOn=false,F=null,outId=-1,edDone=false;
+const dr=YC.map((yc,i)=>({n:'',yc,a:0,id:i+1,on:false,levels:1,shown:0,nl:new Array(MAXLV).fill(0)}));
+let repos=[],cur=0,cellsAll=[],pg=0,CELLS=[],items=[],msg='',tabOn=false,fs=false,fsrc='',edOn=false,F=null,outId=-1,edDone=false,lv=0;
 const K='#0d0e10',IN='#1c1d21',TR='#2b2d33',FSC='#1a1c22',SHF='#2a2d35';
 /* цельный корпус: боковины и крышка/дно перекрываются и скруглены одинаково — швов нет */
 const frame=[
@@ -237,20 +250,26 @@ function cyl(t,s,c){
 }
 function setHi(v){S.hi=v;gl.uniform1f(L1.hi,v);}
 
-function drawer(d,pick){
- const s=d.a*TRAVEL,y=d.yc,zc=Z0-1.7+s,i=d.id-1;
- const F=h=>pick?[d.id/255,0,0]:hex(h),B=h=>pick?[(200+i)/255,0,0]:hex(h);
- box([0,y,Z0+.1+s],[4.7,.96,.2],F(K),.1);
- box([0,y,Z0+.2+s],[4.3,.62,.04],F(IN),.02);
+/* z центра лотка уровня L: основной лоток выезжает вместе с ящиком, вложенные выдвигаются вперёд один из другого */
+function trayZ(d,L){let z=Z0-1.7+d.a*TRAVEL;for(let j=1;j<=L;j++)z+=d.nl[j]*NEST;return z;}
+function tray(y,zc,pick,id){
+ const B=h=>pick?pc(id):hex(h);
  box([0,y-.4,zc],[4.5,.12,3.4],B(TR),.05);
  box([-2.19,y-.12,zc],[.12,.45,3.4],B(TR),.05);
  box([2.19,y-.12,zc],[.12,.45,3.4],B(TR),.05);
  box([0,y-.12,zc-1.64],[4.5,.45,.12],B(TR),.05);
 }
+function drawer(d,pick){
+ const s=d.a*TRAVEL,y=d.yc,F=h=>pick?pc(d.id):hex(h);
+ box([0,y,Z0+.1+s],[4.7,.96,.2],F(K),.1);
+ box([0,y,Z0+.2+s],[4.3,.62,.04],F(IN),.02);
+ tray(y,Z0-1.7+s,pick,100+d.id-1);
+ for(let L=1;L<MAXLV;L++)if(d.nl[L]>.03)tray(y,trayZ(d,L),pick,100+d.id-1);
+}
 /* разъём для планшета на правой стойке: хромированная рамка, чёрный паз и светодиод (зелёный — подключено) */
 const PORT=[3,7.6,2.15];
 function port(pick){
- const c=h=>pick?[5/255,0,0]:hex(h);
+ const c=h=>pick?pc(5):hex(h);
  if(pick)box([3,7.7,2.2],[1,.9,.2],c(0),.02);
  box([3,7.6,2.12],[.56,.34,.05],c(CHR),.04);
  box([3,7.6,2.14],[.4,.18,.02],c(BLK),.02);
@@ -258,7 +277,7 @@ function port(pick){
 }
 /* стенд для перепрошивки: стол, монитор и клавиатура (тап по ним открывает редактор) */
 function stand(pick){
- const B=(t,s,h,r)=>box([STX+t[0],t[1],t[2]],s,pick?[6/255,0,0]:hex(h),r);
+ const B=(t,s,h,r)=>box([STX+t[0],t[1],t[2]],s,pick?pc(6):hex(h),r);
  B([0,2.6,0],[6.4,.3,3.4],'#8b6b4a',.06);
  for(const x of[-2.9,2.9])for(const z of[-1.4,1.4])B([x,1.225,z],[.3,2.45,.3],'#5c4630',.04);
  B([0,2.79,-.95],[1.4,.08,.9],'#1a1c22',.03);B([0,3.2,-.95],[.28,.75,.2],'#1a1c22',.04);
@@ -268,22 +287,27 @@ function stand(pick){
  [.5,.75,1].forEach(z=>B([-1,2.88,z],[2.3,.05,.18],'#8a93a6',.02));
 }
 const DESK=[STX+1.9,2.75,.6];
+const itemPos=it=>[it.lx,dr[it.cell].yc-.34+it.y,trayZ(dr[it.cell],it.lvl)+it.lz];
 function parts(it,pick){
  const d=dr[it.cell],e=it.ps*it.ps*(3-2*it.ps);
- let bx,by,bz,c=it.sc,k;
+ let b,c=it.sc,k;
  if(e>.001){
   /* деталь вытащена: летит дугой из лотка на стол стенда */
-  bx=it.h[0]+(DESK[0]-it.h[0])*e;by=it.h[1]+(DESK[1]-it.h[1])*e+2.5*Math.sin(Math.PI*e);bz=it.h[2]+(DESK[2]-it.h[2])*e;
+  const h=it.h;
+  b=[h[0]+(DESK[0]-h[0])*e,h[1]+(DESK[1]-h[1])*e+2.5*Math.sin(Math.PI*e),h[2]+(DESK[2]-h[2])*e];
   c=it.sc+(1-it.sc)*e;k=1;
  }else{
   k=Math.min(1,Math.max(0,(d.a-.12)*2));
+  if(it.lvl)k*=Math.min(1,Math.max(0,(d.nl[it.lvl]-.4)*2.5));
   if(k<.03)return;
-  bx=it.lx;by=d.yc-.34+it.y;bz=Z0-1.7+d.a*TRAVEL+it.lz-.35;
+  b=itemPos(it);
  }
- setHi(!pick&&it.id-10===sel?.14:0);
+ const rot=it.rot&&e<.5;
+ setHi(!pick&&it.i===sel?.14:0);
  for(const p of TYPES[it.type].parts){
-  const col=pick?[it.id/255,0,0]:p.c?hex(p.c):it.col.map(v=>v*p.f);
-  const t=[bx+p.o[0]*c,by+p.o[1]*k*c,bz+p.o[2]*c],s=[p.s[0]*c,p.s[1]*k*c,p.s[2]*c];
+  const o=rot?[p.o[2],p.o[1],-p.o[0]]:p.o,z=rot?[p.s[2],p.s[1],p.s[0]]:p.s;
+  const col=pick?pc(1000+it.i):p.c?hex(p.c):it.col.map(v=>v*p.f);
+  const t=[b[0]+o[0]*c,b[1]+o[1]*k*c,b[2]+o[2]*c],s=[z[0]*c,z[1]*k*c,z[2]*c];
   if(p.k)cyl(t,s,col);else box(t,s,col);
  }
 }
@@ -381,15 +405,23 @@ const api=gh;
 const leaveOk=()=>!(F&&F.dirty)||confirm('Есть несохранённые изменения. Продолжить без сохранения?');
 function build(){
  if(edOn){edOn=false;$('ed').hidden=true;document.body.classList.remove('edm');}
- outId=-1;F=null;showMon();
+ outId=-1;F=null;lv=0;showMon();
  CELLS=cellsAll.slice(pg*4,pg*4+4);
- dr.forEach((d,i)=>{d.on=i<CELLS.length;d.n=d.on?CELLS[i].n:'';d.a=0;tapes[i].firstChild.textContent=d.n;});
  items=[];
- CELLS.forEach((c,ci)=>['cpu','gpu','ssd'].forEach(t=>{
-  const fl=c.f.filter(f=>EXT[ext(f)]===t).slice(0,MAXL),w=LW[t],sc=Math.min(1,4.2/(fl.length*w));
-  fl.forEach((f,i)=>items.push({id:10+items.length,name:f.split('/').pop(),path:f,type:t,cell:ci,sc,
-   lx:(i-(fl.length-1)/2)*w*sc,lz:LZ[t],y:0,ps:0,pt:0,h:null,col:hex(TYPES[t].col)}));
- }));
+ dr.forEach((d,i)=>{d.on=i<CELLS.length;d.n=d.on?CELLS[i].n:'';d.a=0;d.nl.fill(0);d.levels=1;d.shown=0;});
+ CELLS.forEach((c,ci)=>{
+  const by={cpu:[],gpu:[],ssd:[]},d=dr[ci];
+  c.f.forEach(f=>by[EXT[ext(f)]].push(f));
+  d.levels=Math.min(MAXLV,Math.max(1,...['cpu','gpu','ssd'].map(t=>Math.ceil(by[t].length/CAP[t]))));
+  for(let L=0;L<d.levels;L++)['cpu','gpu','ssd'].forEach(t=>{
+   const fl=by[t].slice(L*CAP[t],(L+1)*CAP[t]);
+   fit(fl.length,ZN[t],FP[t]).forEach((q,j)=>{
+    items.push({i:items.length,name:fl[j].split('/').pop(),path:fl[j],type:t,cell:ci,lvl:L,rot:t==='ssd',sc:q.sc,lx:q.x,lz:q.z,y:0,ps:0,pt:0,h:null,col:hex(TYPES[t].col)});
+    d.shown++;
+   });
+  });
+ });
+ dr.forEach((d,i)=>{tapes[i].firstChild.textContent=d.n+(d.levels>1?' ×'+d.levels:'');});
  od=-1;sel=-1;
  const pages=Math.ceil(cellsAll.length/4);
  $('pgr').hidden=pages<2;$('pl').textContent=(pg+1)+' / '+pages;$('pp').disabled=pg<1;$('pn').disabled=pg>=pages-1;
@@ -482,22 +514,24 @@ async function save(){
 }
 function pull(i){
  if(outId>=0&&!leave())return;
- const it=items[i],d=dr[it.cell];
- it.h=[it.lx,d.yc-.34+it.y,Z0-1.7+d.a*TRAVEL+it.lz-.35];
- it.pt=1;outId=i;od=-1;sel=-1;edDone=false;
+ const it=items[i];
+ it.h=itemPos(it);
+ it.pt=1;outId=i;od=-1;lv=0;sel=-1;edDone=false;
  loadFile(it);ui();
 }
 function leave(){
  if(outId<0)return true;
  if(F&&F.dirty&&!confirm('Есть несохранённые изменения. Вернуть деталь без сохранения?'))return false;
  if(edOn){edOn=false;$('ed').hidden=true;document.body.classList.remove('edm');}
- const it=items[outId];it.pt=0;od=it.cell;outId=-1;F=null;showMon();ui();return true;
+ const it=items[outId];it.pt=0;od=it.cell;lv=it.lvl;outId=-1;F=null;showMon();ui();return true;
 }
 ea.oninput=()=>{if(!F)return;F.dirty=ea.value!==F.text;$('es').textContent=F.dirty?'Изменено, не сохранено':'Сохранено';};
 ea.onkeydown=e=>{if(e.key==='Tab'){e.preventDefault();ea.setRangeText('  ',ea.selectionStart,ea.selectionEnd,'end');ea.oninput();}};
 $('ex').onclick=closeEd;
 $('sv').onclick=save;
 $('pu').onclick=()=>{if(sel>=0)pull(sel);};
+$('lp').onclick=()=>{if(lv>0){lv--;ui();}};
+$('ln').onclick=()=>{if(od>=0&&lv<dr[od].levels-1){lv++;ui();}};
 document.addEventListener('keydown',e=>{
  if(e.key==='Escape'){if(edOn)closeEd();else if(fs)setFs(false);}
  else if(edOn&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save();}
@@ -516,49 +550,54 @@ cv.addEventListener('pointerup',e=>{
   draw(true);
   const px=new Uint8Array(4);
   gl.readPixels(Math.floor(e.clientX*dpr),Math.floor(H-e.clientY*dpr-1),1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);
-  tap(px[0]);
+  tap(px[0]+px[1]*256);
  }
  down=null;
 });
 function tap(id){
  if(id===5){setTab(!tabOn);return;}
  if(id===6){if(outId>=0)openEd();return;}
- if(id>=1&&id<=4){if(dr[id-1].on){od=od===id-1?-1:id-1;sel=-1;}}
- else if(id>=10&&id<10+items.length){
-  const i=id-10;
+ if(id>=1&&id<=4){
+  if(dr[id-1].on){od=od===id-1?-1:id-1;lv=0;sel=-1;if(od>=0&&dr[od].levels>1)menu(true);}
+ }
+ else if(id>=1000){
+  const i=id-1000;
+  if(!items[i])return;
   if(outId===i){openEd();return;}
   if(sel===i){pull(i);return;}
   sel=i;menu(true);
  }
- else if(id>=200){sel=-1;}
+ else if(id>=100&&id<200){sel=-1;}
  else if(sel>=0){sel=-1;}
- else{od=-1;}
+ else{od=-1;lv=0;}
  ui();
 }
 
 /* ---- меню (левый верхний угол) ---- */
 const sw=$('sw'),cc=$('cc'),rs=$('rs'),cl=$('cl'),tg=$('tg'),mb=$('mb');
-['#ffb68a','#8a919f','#f1ecff','#8de0b7','#ff9fb8','#c3b0ff','#8fd8ff','#ffe58a'].forEach(c=>{
+['#ffa51a','#2fc24a','#ffe3d6','#8de0b7','#ff9fb8','#c3b0ff','#8fd8ff','#ffe58a'].forEach(c=>{
  const b=document.createElement('button');b.className='sw';b.style.background=c;b.disabled=true;b.setAttribute('aria-label','Цвет '+c);
  b.onclick=()=>paint(c);sw.appendChild(b);
 });
 function menu(v){mb.hidden=!v;tg.setAttribute('aria-expanded',v);}
 function paint(c){if(sel<0)return;items[sel].col=hex(c);cc.value=c;}
 function ui(){
- const on=sel>=0;
+ const on=sel>=0,nest=od>=0&&dr[od].levels>1;
  sw.querySelectorAll('button').forEach(b=>b.disabled=!on);cc.disabled=rs.disabled=!on;
  $('pu').disabled=!on;
+ $('lvr').hidden=!nest;
+ if(nest){$('ll').textContent='ящик в ящике '+(lv+1)+' / '+dr[od].levels;$('lp').disabled=lv<1;$('ln').disabled=lv>=dr[od].levels-1;}
  cl.hidden=od<0&&outId<0;
  cl.setAttribute('aria-label',outId>=0?'Вернуть деталь на место':'Закрыть ящик');
  if(outId>=0){$('name').textContent=items[outId].name;$('meta').textContent='На стенде. Тап по монитору — редактор';}
  else if(on){const it=items[sel];$('name').textContent=it.name;$('meta').textContent=TYPES[it.type].name+', ящик '+CELLS[it.cell].n+'. Ещё тап — править';cc.value=toHex(it.col);}
- else if(od>=0){$('name').textContent=CELLS[od].n;$('meta').textContent='Ящик открыт, файлов: '+CELLS[od].f.length;}
+ else if(od>=0){const n=CELLS[od].f.length,sh2=dr[od].shown;$('name').textContent=CELLS[od].n;$('meta').textContent='Ящик открыт, файлов: '+n+(sh2<n?' (показано '+sh2+')':'');}
  else{$('name').textContent=repos[cur]?repos[cur].name:'cyr';$('meta').textContent=msg;}
 }
 tg.onclick=()=>menu(mb.hidden);
 cc.oninput=()=>paint(cc.value);
 rs.onclick=()=>{if(sel>=0){const it=items[sel];it.col=hex(TYPES[it.type].col);cc.value=TYPES[it.type].col;}};
-cl.onclick=()=>{if(outId>=0){leave();return;}od=-1;sel=-1;ui();};
+cl.onclick=()=>{if(outId>=0){leave();return;}od=-1;lv=0;sel=-1;ui();};
 $('bg').oninput=e=>{bg=hex(e.target.value);document.documentElement.style.setProperty('--bg',e.target.value);};
 $('srv').onchange=e=>{if(!leaveOk()){e.target.value=cur;return;}loadServer(+e.target.value);};
 $('pp').onclick=()=>{if(!leaveOk())return;pg--;build();};
@@ -570,9 +609,12 @@ build();loadRepos();
 (function loop(){
  if(!fs&&!edOn){
   resize();
-  dr.forEach((d,i)=>{d.a+=((i===od?1:0)-d.a)*.14;});
+  dr.forEach((d,i)=>{
+   d.a+=((i===od?1:0)-d.a)*.14;
+   for(let L=1;L<MAXLV;L++)d.nl[L]+=(((i===od&&L<=lv)?1:0)-d.nl[L])*.12;
+  });
   items.forEach((it,i)=>{it.y+=((i===sel?.3:0)-it.y)*.18;it.ps+=(it.pt-it.ps)*.07;if(Math.abs(it.pt-it.ps)<.002)it.ps=it.pt;});
-  const tg2=outId>=0?{x:STX,y:3.6,z:0,H:3.7,W:4,e:.4}:od<0?{x:0,y:4.8,z:0,H:5.8,W:4.1,e:.45}:{x:0,y:YC[od]-.1,z:3,H:2.9,W:3.3,e:.95};
+  const tg2=outId>=0?{x:STX,y:3.6,z:0,H:3.7,W:4,e:.4}:od<0?{x:0,y:4.8,z:0,H:5.8,W:4.1,e:.45}:{x:0,y:YC[od]-.1,z:3+lv*NEST,H:2.9,W:3.3,e:.95};
   for(const k in tg2)cam[k]+=(tg2[k]-cam[k])*.1;
   draw(false);place();
   if(outId>=0&&!edDone&&items[outId].ps>.985){edDone=true;openEd();}
