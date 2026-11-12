@@ -55,7 +55,7 @@ button:focus-visible,input:focus-visible{outline:3px solid #4f6cff;outline-offse
 <div class="row"><label>Фон <input type="color" id="bg" value="#7ea6ff"></label></div>
 <div class="row" style="display:block">
 <div class="lg"><i style="background:#ffb68a"></i>Процессор: .py .js .sh</div>
-<div class="lg"><i style="background:#c4ccdb"></i>RTX 5080: .html .css</div>
+<div class="lg"><i style="background:#8a919f"></i>RTX 4080: .html .css</div>
 <div class="lg"><i style="background:#f1ecff"></i>SSD: .png .mp4 .mp3</div></div>
 </div>
 </div>
@@ -69,23 +69,34 @@ const toHex=c=>'#'+c.map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join
 
 /* ---- данные: сервер (стойка) → ящики (папки) → детали (файлы) ----
    part: {o:центр, s:размер, f:множитель цвета детали | c:фиксированный цвет, k:1 — цилиндр вдоль Z} */
-const RING='#e3e8f2',FAN='#2a2d35',BLK='#15171b';
+const CHR='#e3e8f2',DK='#16181c',FAN='#23262d',GRY='#9aa2b2',BLK='#0b0c0e';
+/* RTX 4080 Founders Edition: толстый корпус, хромированная рамка, слева вентилятор, справа решётка */
+const gpuParts=[
+ {o:[0,.52,0],s:[2.2,.96,.5],f:1},
+ {o:[0,.52,.25],s:[2.04,.8,.04],c:DK},
+ {o:[0,.94,.265],s:[2.1,.06,.05],c:CHR},{o:[0,.1,.265],s:[2.1,.06,.05],c:CHR},
+ {o:[-1.03,.52,.265],s:[.06,.84,.05],c:CHR},{o:[1.03,.52,.265],s:[.06,.84,.05],c:CHR},
+ {o:[0,.52,.265],s:[.05,.8,.05],c:CHR},
+ {k:1,o:[-.52,.52,.285],s:[.86,.86,.04],c:CHR},
+ {k:1,o:[-.52,.52,.3],s:[.78,.78,.05],c:FAN},
+ {k:1,o:[-.52,.52,.33],s:[.5,.5,.02],c:'#3a3e47'},
+ {k:1,o:[-.52,.52,.335],s:[.24,.24,.05],c:CHR},
+ {o:[.5,.52,.265],s:[.04,.7,.07],c:GRY,x:[0,.11,.22,.33,.44,.55,.66,.77]},
+ {o:[0,1.02,0],s:[1.2,.04,.1],c:'#f4f7ff'},
+ {o:[.85,1.07,-.05],s:[.4,.12,.22],c:BLK},
+ {o:[-1.13,.5,0],s:[.06,.92,.5],c:CHR},
+ {o:[-1.18,.22,0],s:[.05,.1,.26],c:BLK},{o:[-1.18,.42,0],s:[.05,.1,.26],c:BLK},
+ {o:[-1.18,.62,0],s:[.05,.1,.26],c:BLK},{o:[-1.18,.82,0],s:[.05,.1,.26],c:BLK},
+ {o:[0,.03,0],s:[1.2,.06,.1],c:'#ffd98a'}];
 const TYPES={
  cpu:{name:'Процессор',col:'#ffb68a',parts:[
   {o:[0,.04,0],s:[1.05,.08,1.05],f:.4},{o:[0,.14,0],s:[.95,.2,.95],f:1},{o:[0,.27,0],s:[.55,.06,.55],f:.55}]},
- gpu:{name:'RTX 5080',col:'#c4ccdb',parts:[
-  {o:[0,.52,0],s:[2.2,.96,.3],f:1},
-  {o:[0,.52,.16],s:[2.02,.82,.04],c:BLK},
-  {k:1,o:[-.5,.52,.19],s:[.8,.8,.05],c:RING},{k:1,o:[.5,.52,.19],s:[.8,.8,.05],c:RING},
-  {k:1,o:[-.5,.52,.21],s:[.7,.7,.05],c:FAN},{k:1,o:[.5,.52,.21],s:[.7,.7,.05],c:FAN},
-  {k:1,o:[-.5,.52,.235],s:[.22,.22,.05],c:'#c4ccdb'},{k:1,o:[.5,.52,.235],s:[.22,.22,.05],c:'#c4ccdb'},
-  {o:[-.3,1.02,0],s:[.9,.04,.1],c:'#76b900'},
-  {o:[.8,1.05,0],s:[.4,.1,.18],c:BLK},
-  {o:[-1.15,.5,0],s:[.06,.9,.34],c:RING},
-  {o:[0,.03,0],s:[1.2,.06,.08],c:'#ffd98a'}]},
+ gpu:{name:'RTX 4080',col:'#8a919f',parts:gpuParts},
  ssd:{name:'SSD',col:'#f1ecff',parts:[
   {o:[0,.09,0],s:[1.7,.18,.9],f:1},{o:[.1,.2,0],s:[1,.03,.55],f:.5},{o:[-.95,.06,0],s:[.2,.12,.7],c:'#ffd98a'}]}
 };
+/* ребристая решётка: повторяем деталь p по смещениям p.x вдоль X */
+for(const t in TYPES)TYPES[t].parts=TYPES[t].parts.flatMap(p=>p.x?p.x.map(dx=>({...p,x:0,o:[p.o[0]+dx-.0,p.o[1],p.o[2]]})):[p]);
 const EXT={py:'cpu',js:'cpu',sh:'cpu',html:'gpu',css:'gpu',png:'ssd',mp4:'ssd',mp3:'ssd'};
 const CELLS=[
  {n:'core/',f:['main.py','app.js','build.sh']},
@@ -236,7 +247,7 @@ function tap(id){
 
 /* ---- меню (левый верхний угол) ---- */
 const sw=$('sw'),cc=$('cc'),rs=$('rs'),cl=$('cl'),tg=$('tg'),mb=$('mb');
-['#ffb68a','#c4ccdb','#f1ecff','#8de0b7','#ff9fb8','#c3b0ff','#8fd8ff','#ffe58a'].forEach(c=>{
+['#ffb68a','#8a919f','#f1ecff','#8de0b7','#ff9fb8','#c3b0ff','#8fd8ff','#ffe58a'].forEach(c=>{
  const b=document.createElement('button');b.className='sw';b.style.background=c;b.disabled=true;b.setAttribute('aria-label','Цвет '+c);
  b.onclick=()=>paint(c);sw.appendChild(b);
 });
