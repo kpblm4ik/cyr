@@ -26,6 +26,18 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1
 #mb{margin-top:8px}
 .gps{flex:1 1 100%;font-size:11px;color:var(--sub);overflow-wrap:anywhere}
 #gp[aria-pressed="true"]{color:#1f9d55}
+/* окно «Навести порядок»: план переноса файлов из корня и подтверждение */
+.td{position:fixed;inset:0;z-index:25;display:grid;place-items:center;padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px));background:rgba(10,16,48,.45);box-sizing:border-box}
+.td[hidden]{display:none}
+.tdb{width:min(620px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:24px;background:var(--card);color:var(--ink);box-shadow:var(--raise);box-sizing:border-box}
+.tdb h2{margin:0;font-size:17px;font-weight:800}
+#tdn{font-size:12px;color:var(--sub)}
+#tdl{flex:1;min-height:80px;overflow:auto;margin:0;padding:10px 12px;border-radius:14px;background:#0b0f16;color:#d6e0f5;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+#tdl .g{color:#8fd8ff;font-weight:700}#tdl .k{color:#8a93a6}
+.tdf{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tdf label{flex:1 1 100%;font-size:12px;display:flex;align-items:center;gap:6px}
+#tds{flex:1 1 100%;font-size:12px;color:var(--sub);min-height:16px}
+#tdgo{background:#2f6bff;color:#fff}
 .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
 .row label{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px}
 .sw{width:24px;height:24px;border-radius:50%;border:0;padding:0;cursor:pointer;box-shadow:3px 4px 7px var(--shd),-2px -2px 5px var(--shl),inset -3px -3px 5px rgba(0,0,0,.16),inset 3px 3px 5px rgba(255,255,255,.55)}
@@ -96,6 +108,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <div class="row" id="lvr" hidden><button id="lp" class="btn" aria-label="Ящик наружу">◂</button><span id="ll"></span><button id="ln" class="btn" aria-label="Ящик внутри ящика">▸</button></div>
 <div class="row"><button id="pu" class="btn" disabled>Вытащить и править</button></div>
 <div class="row"><button id="tb" class="btn">Планшет</button></div>
+<div class="row"><button id="tdy" class="btn">Навести порядок</button></div>
 <div class="row"><button id="gp" class="btn" aria-pressed="false">Включить WebGPU</button><span id="gps" class="gps"></span></div>
 <div class="row" id="sw"></div>
 <div class="row"><label>свой <input type="color" id="cc" value="#ffa51a" disabled></label>
@@ -111,6 +124,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <div id="tab" class="tab off">
 <div class="tb"><span id="tu"></span><button id="tr" aria-label="Обновить">↻</button><button id="tf" aria-label="Во весь экран">⤢</button><button id="tx" aria-label="Отключить планшет">✕</button></div>
 <div class="ts"><iframe id="fr" title="Сайт репозитория" sandbox="allow-scripts allow-forms allow-popups allow-modals" referrerpolicy="no-referrer"></iframe><div id="tn" class="tn" hidden></div></div>
+</div>
+<div id="td" class="td" hidden role="dialog" aria-modal="true" aria-labelledby="tdh">
+<div class="tdb">
+<h2 id="tdh">Навести порядок</h2>
+<div id="tdn"></div>
+<pre id="tdl"></pre>
+<div class="tdf"><label><input type="checkbox" id="tdk" checked> Исправить ссылки на перенесённые файлы (html, css, js, md, svg, json, yml)</label>
+<label id="tdjl" hidden><input type="checkbox" id="tdj" checked> Jekyll: сохранить адреса страниц (permalink в перенесённых .md)</label>
+<button id="tdx" class="btn">Отмена</button><button id="tdgo" class="btn">Разложить по папкам</button>
+<div id="tds" role="status"></div></div>
+</div>
 </div>
 <div id="ed" class="ed" hidden>
 <div class="eh"><span id="en"></span><span id="es"></span><button id="ex">Закрыть</button></div>
@@ -184,9 +208,10 @@ const ext=f=>f.split('.').pop().toLowerCase();
 /* раскладка лотка: процессоры сзади слева (до 4), SSD узкой полосой справа на всю глубину (до 12), видеокарты спереди плотно от левой стенки (до 8).
    ZN — зона в координатах лотка (x от центра, z от центра лотка), FP — габарит детали (SSD лежит повёрнутым, видеокарты стоят на ребре).
    Не поместилось — следующий уровень: ещё один ящик внутри ящика (до MAXLV уровней). */
-const CAP={cpu:4,gpu:8,ssd:12,sata:12},MAXLV=6,NEST=3.5;
+const CAP={cpu:4,gpu:8,ssd:12,sata:12},BACK=4,MAXLV=10,NEST=3.5;
 /* SATA-диск лежит в задней зоне справа от процессоров (по одному на уровень, до 12 чипов внутри); если в папке есть .md — зона процессоров сужается */
-const ZNS={x0:.2,x1:1.3,z0:-1.54,z1:-.66},ZNC={x0:-2.1,x1:.1,z0:-1.54,z1:-.66},BOARD={x0:-.4,x1:.44,z0:-.27,z1:.27},SOPEN=2.3;
+/* задний ряд лотка: BACK мест, которые делят процессоры и SATA-диски (сначала диски, оставшиеся места — процессорам) */
+const BOARD={x0:-.4,x1:.44,z0:-.27,z1:.27},SOPEN=2.3;
 const sm=v=>v*v*(3-2*v);
 const ZN={cpu:{x0:-2.1,x1:1.3,z0:-1.54,z1:-.66},gpu:{x0:-2.1,x1:1.3,z0:-.6,z1:1.66},ssd:{x0:1.38,x1:2.1,z0:-1.54,z1:1.66}};
 const FP={cpu:[1.05,1.05],gpu:[.48,2.12],ssd:[.9,1.9],sata:[1.05,.75],chip:[.92,.74]};
@@ -498,7 +523,7 @@ document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement
 
 /* ---- GitHub ---- */
 const gh=async(u,o={})=>{
- const r=await fetch('https://api.github.com'+u,{method:o.method||'GET',headers:Object.assign({Authorization:'Bearer '+TOK,Accept:o.accept||'application/vnd.github+json'},o.body?{'Content-Type':'application/json'}:{}),body:o.body?JSON.stringify(o.body):undefined});
+ const r=await fetch('https://api.github.com'+u,{method:o.method||'GET',cache:o.cache||'default',headers:Object.assign({Authorization:'Bearer '+TOK,Accept:o.accept||'application/vnd.github+json'},o.body?{'Content-Type':'application/json'}:{}),body:o.body?JSON.stringify(o.body):undefined});
  if(r.status===401){sessionStorage.removeItem('cyr_token');location.replace('index.html');throw new Error('401');}
  if(!r.ok){const e=new Error(r.status);try{e.msg=(await r.json()).message;}catch(_){}throw e;}
  return o.blob?r.blob():r.json();
@@ -515,27 +540,35 @@ function build(){
  dr.forEach((d,i)=>{d.on=i<CELLS.length;d.n=d.on?CELLS[i].n:'';d.a=0;d.nl.fill(0);d.levels=1;d.shown=0;});
  CELLS.forEach((c,ci)=>{
   /* медиа прямо в папке — SSD; медиа из подпапки (images/covers/…) — чипы в SATA-диске этой подпапки; .md — чипы в своём SATA-диске */
-  const by={cpu:[],gpu:[],ssd:[],sata:[]},d=dr[ci],TT=['cpu','gpu','ssd'],sub=new Map(),pre=c.n==='/'?'':c.n;
+  const by={cpu:[],gpu:[],ssd:[],sata:[]},d=dr[ci],sub=new Map(),pre=c.n==='/'?'':c.n;
   c.f.forEach(f=>{
    const t=EXT[ext(f)],rel=f.slice(pre.length),k=rel.indexOf('/');
    if(t==='ssd'&&k>0){const sn=rel.slice(0,k+1);if(!sub.has(sn))sub.set(sn,[]);sub.get(sn).push(f);}
    else by[t].push(f);
   });
-  /* SATA-диски: по одному на уровень, до 12 чипов; длинный список делится на несколько дисков */
-  const disks=[],chunk=(lab,fl,media)=>{for(let j=0;j<fl.length;j+=CAP.sata)disks.push({lab,fl:fl.slice(j,j+CAP.sata),media});};
+  /* SATA-диски по 12 чипов: заполнился — рядом встаёт новый диск */
+  const disks=[],chunk=(lab,fl,media)=>{const n=Math.ceil(fl.length/CAP.sata);for(let j=0;j<n;j++)disks.push({lab,fl:fl.slice(j*CAP.sata,(j+1)*CAP.sata),media,no:n>1?(j+1)+'/'+n:''});};
   chunk('.md',by.sata,false);
   [...sub].sort(([a],[b])=>a.localeCompare(b)).forEach(([sn,fl])=>chunk(sn,fl,true));
-  d.levels=Math.min(MAXLV,Math.max(1,disks.length,...TT.map(t=>Math.ceil(by[t].length/CAP[t]))));
-  const mk=(t,path,L,q,x)=>{const it=Object.assign({i:items.length,name:path.split('/').pop(),path,type:t,cell:ci,lvl:L,rot:t==='ssd',sc:q.sc,lx:q.x,lz:q.z,y:0,ps:0,pt:0,op:0,h:null,hc:1,base:TYPES[t].col},x);it.col=hex(it.base);items.push(it);return it;};
-  for(let L=0;L<d.levels;L++){
-   TT.forEach(t=>{
-    const fl=by[t].slice(L*CAP[t],(L+1)*CAP[t]);
-    fit(fl.length,t==='cpu'&&disks.length?ZNC:ZN[t],FP[t],t==='gpu').forEach((q,j)=>{mk(t,fl[j],L,q);d.shown++;});
-   });
-   const k=disks[L];if(!k)continue;
-   const disk=mk('sata',c.n,L,fit(1,ZNS,FP.sata)[0],{name:'SATA · '+(k.media?k.lab+' · '+k.fl.length:k.fl.length+' .md'),n:k.fl.length,lab:k.lab,media:k.media});
-   fit(k.fl.length,BOARD,FP.chip).forEach((q,j)=>{mk('chip',k.fl[j],L,q,{par:disk.i,media:k.media,base:k.media?'#8a5566':TYPES.chip.col});d.shown++;});
+  /* раскладка по уровням: место в лотке кончилось — автоматически появляется ящик в ящике */
+  const Q={dk:disks.slice(),cpu:by.cpu.slice(),gpu:by.gpu.slice(),ssd:by.ssd.slice()},plan=[];
+  while((Q.dk.length||Q.cpu.length||Q.gpu.length||Q.ssd.length)&&plan.length<MAXLV){
+   const dk=Q.dk.splice(0,BACK);
+   plan.push({dk,cpu:Q.cpu.splice(0,BACK-dk.length),gpu:Q.gpu.splice(0,CAP.gpu),ssd:Q.ssd.splice(0,CAP.ssd)});
   }
+  d.levels=Math.max(1,plan.length);
+  const mk=(t,path,L,q,x)=>{const it=Object.assign({i:items.length,name:path.split('/').pop(),path,type:t,cell:ci,lvl:L,rot:t==='ssd',sc:q.sc,lx:q.x,lz:q.z,y:0,ps:0,pt:0,op:0,h:null,hc:1,base:TYPES[t].col},x);it.col=hex(it.base);items.push(it);return it;};
+  plan.forEach((P,L)=>{
+   const back=[...P.dk.map(k=>({k})),...P.cpu.map(f=>({f}))];
+   fit(back.length,ZN.cpu,FP.cpu).forEach((q,j)=>{
+    const{k,f}=back[j];
+    if(f){mk('cpu',f,L,q);d.shown++;return;}
+    const disk=mk('sata',c.n,L,q,{name:'SATA · '+(k.media?k.lab+' · '+k.fl.length:k.fl.length+' .md')+(k.no?' · '+k.no:''),n:k.fl.length,lab:k.lab+(k.no?' '+k.no:''),media:k.media});
+    fit(k.fl.length,BOARD,FP.chip).forEach((q2,j2)=>{mk('chip',k.fl[j2],L,q2,{par:disk.i,media:k.media,base:k.media?'#8a5566':TYPES.chip.col});d.shown++;});
+   });
+   fit(P.gpu.length,ZN.gpu,FP.gpu,true).forEach((q,j)=>{mk('gpu',P.gpu[j],L,q);d.shown++;});
+   fit(P.ssd.length,ZN.ssd,FP.ssd).forEach((q,j)=>{mk('ssd',P.ssd[j],L,q);d.shown++;});
+  });
  });
  dr.forEach((d,i)=>{tapes[i].firstChild.textContent=d.n+(d.levels>1?' ×'+d.levels:'');});
  od=-1;sel=-1;
@@ -543,23 +576,59 @@ function build(){
  $('pgr').hidden=pages<2;$('pl').textContent=(pg+1)+' / '+pages;$('pp').disabled=pg<1;$('pn').disabled=pg>=pages-1;
  ui();
 }
+/* дерево файлов → ящики (папки верхнего уровня) */
+function cellsOf(tree){
+ const m=new Map();
+ for(const e of tree){
+  if(e.type!=='blob'||!EXT[ext(e.path)])continue;
+  const s=e.path.indexOf('/'),k=s<0?'/':e.path.slice(0,s)+'/';
+  if(!m.has(k))m.set(k,[]);
+  m.get(k).push(e.path);
+ }
+ return[...m].sort(([a],[b])=>a==='/'?-1:b==='/'?1:a.localeCompare(b)).map(([n,f])=>({n,f}));
+}
+let head='',tree=[],pend=null,polling=false,tidyOn=false;
 async function loadServer(i){
- cur=i;pg=0;cellsAll=[];msg='Загружаю…';build();setSite();
+ cur=i;pg=0;cellsAll=[];tree=[];head='';pend=null;msg='Загружаю…';build();setSite();
  const r=repos[i];
  try{
-  const t=await api('/repos/'+r.full_name+'/git/trees/'+encodeURIComponent(r.default_branch)+'?recursive=1');
-  const m=new Map();
-  for(const e of t.tree){
-   if(e.type!=='blob'||!EXT[ext(e.path)])continue;
-   const s=e.path.indexOf('/'),k=s<0?'/':e.path.slice(0,s)+'/';
-   if(!m.has(k))m.set(k,[]);
-   m.get(k).push(e.path);
-  }
-  cellsAll=[...m].sort(([a],[b])=>a==='/'?-1:b==='/'?1:a.localeCompare(b)).map(([n,f])=>({n,f}));
+  const b=await api('/repos/'+r.full_name+'/branches/'+encodeURIComponent(r.default_branch),{cache:'no-cache'});
+  const t=await api('/repos/'+r.full_name+'/git/trees/'+b.commit.sha+'?recursive=1');
+  if(cur!==i)return;
+  head=b.commit.sha;tree=t.tree;cellsAll=cellsOf(tree);
   msg=cellsAll.length?'Ящиков: '+cellsAll.length+(t.truncated?' (список файлов неполный)':''):'Нет подходящих файлов';
  }catch(e){msg=e.message==='409'?'Репозиторий пуст':'Не удалось загрузить ('+e.message+')';}
  if(cur===i)build();
 }
+/* автообновление: раз в 20 с (и при возврате на вкладку) проверяем последний коммит ветки.
+   Появились новые файлы — ящики, диски и вложенные ящики пересобираются сами; открытый ящик остаётся открытым */
+async function poll(){
+ const i=cur,r=repos[i];
+ if(!r||!head||polling||document.hidden)return;
+ polling=true;
+ try{
+  const b=await api('/repos/'+r.full_name+'/branches/'+encodeURIComponent(r.default_branch),{cache:'no-cache'});
+  if(cur===i&&b.commit.sha!==head){
+   const t=await api('/repos/'+r.full_name+'/git/trees/'+b.commit.sha+'?recursive=1');
+   if(cur===i){head=b.commit.sha;tree=t.tree;pend=cellsOf(tree);applyPend();}
+  }
+ }catch(e){}
+ polling=false;
+}
+function applyPend(){
+ if(!pend||outId>=0||edOn||tidyOn)return;
+ const was=JSON.stringify(cellsAll),odn=od>=0&&CELLS[od]?CELLS[od].n:'',lv0=lv,n0=cellsAll.reduce((a,c)=>a+c.f.length,0);
+ cellsAll=pend;pend=null;
+ if(JSON.stringify(cellsAll)===was)return;
+ const n1=cellsAll.reduce((a,c)=>a+c.f.length,0);
+ msg='Обновлено: '+(n1>=n0?'+'+(n1-n0):'−'+(n0-n1))+' файл(ов), ящиков: '+cellsAll.length;
+ build();
+ const k=CELLS.findIndex(c=>c.n===odn);
+ if(k>=0){od=k;lv=Math.min(lv0,dr[k].levels-1);}
+ ui();
+}
+setInterval(poll,20000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});
 async function loadRepos(){
  msg='Загружаю репозитории…';ui();
  try{
@@ -711,7 +780,7 @@ function ui(){
  cl.setAttribute('aria-label',outId>=0?'Вернуть деталь на место':sOpen>=0?'Закрыть SATA-диск':'Закрыть ящик');
  if(outId>=0){$('name').textContent=items[outId].name;$('meta').textContent='На стенде. Тап по монитору — редактор';}
  else if(on){const it=items[sel];$('name').textContent=it.name;$('meta').textContent=(it.type==='chip'&&it.media?'Чип (медиа)':TYPES[it.type].name)+', ящик '+CELLS[it.cell].n+'. Ещё тап — править';cc.value=toHex(it.col);}
- else if(sOpen>=0){const s2=items[sOpen];$('name').textContent='SATA-диск'+(s2.media?' '+s2.lab:'');$('meta').textContent=(s2.media?'Медиа из '+s2.lab+': ':'Чипов (.md): ')+s2.n+', ящик '+CELLS[s2.cell].n+'. Тап по чипу — выбрать';}
+ else if(sOpen>=0){const s2=items[sOpen];$('name').textContent='SATA-диск'+(s2.media?' '+s2.lab:'');$('meta').textContent=(s2.media?'Медиа из '+s2.lab+': ':'Чипов (.md'+(s2.lab!=='.md'?', диск '+s2.lab.slice(4):'')+'): ')+s2.n+', ящик '+CELLS[s2.cell].n+'. Тап по чипу — выбрать';}
  else if(od>=0){const n=CELLS[od].f.length,sh2=dr[od].shown;$('name').textContent=CELLS[od].n;$('meta').textContent='Ящик открыт, файлов: '+n+(sh2<n?' (показано '+sh2+')':'');}
  else{$('name').textContent=repos[cur]?repos[cur].name:'cyr';$('meta').textContent=msg;}
 }
@@ -723,6 +792,165 @@ $('bg').oninput=e=>{bg=hex(e.target.value);document.documentElement.style.setPro
 $('srv').onchange=e=>{if(!leaveOk()){e.target.value=cur;return;}loadServer(+e.target.value);};
 $('pp').onclick=()=>{if(!leaveOk())return;pg--;build();};
 $('pn').onclick=()=>{if(!leaveOk())return;pg++;build();};
+
+/* ---- «Навести порядок»: файлы из корня раскладываются по папкам и подпапкам по формату (для медиа — по кодеку/контейнеру).
+   Всё делается одним коммитом через Git Data API; ссылки на перенесённые файлы в текстовых файлах исправляются. ---- */
+/* что остаётся в корне: служебные файлы, страницы сайта и всё, что GitHub/Pages/Jekyll ищут именно там */
+const KEEP=/^(readme|license|licence|copying|notice|authors|contributors|changelog|history|contributing|code_of_conduct|security|support|funding|citation)(\.[\w.-]+)?$|^(index|404)\.(html?|md|markdown)$|^(cname|robots\.txt|sitemap\.xml|humans\.txt|ads\.txt|security\.txt|_config(\.[\w-]+)?\.ya?ml|mkdocs\.ya?ml|manifest\.json|.*\.webmanifest|browserconfig\.xml|package(-lock)?\.json|(ts|js)config(\.[\w-]+)?\.json|deno\.jsonc?|vercel\.json|netlify\.toml|firebase\.json|composer\.json|bower\.json|search\.json|favicon\.[\w]+|apple-touch-icon[\w.-]*|(service-?worker|sw|[\w-]+-sw|sw-[\w-]+)\.js)$/i;
+const FAM={jpg:'jpeg',jpeg:'jpeg',jfif:'jpeg',pjpeg:'jpeg',pjp:'jpeg',png:'png',apng:'png',heic:'heif',heif:'heif',tif:'tiff',tiff:'tiff',ico:'icons',cur:'icons',
+ mp4:'mp4',m4v:'mp4',mpg:'mpeg',mpeg:'mpeg',ogg:'ogg',oga:'ogg',opus:'opus',aif:'aiff',aiff:'aiff',ogv:'ogg'};
+const VID='mp4 m4v mov webm mkv avi ogv mpg mpeg 3gp'.split(' '),AUD='mp3 wav ogg oga opus flac m4a aac weba aif aiff'.split(' ');
+function tidyDir(name){
+ if(KEEP.test(name)||name.startsWith('.'))return null;
+ const e=ext(name);if(!name.includes('.'))return null;
+ const fam=FAM[e]||e;
+ if(EXT[e]==='ssd')return(VID.includes(e)?'video/':AUD.includes(e)?'audio/':'images/')+fam+'/';
+ if(/^(md|markdown|mdx)$/.test(e))return'docs/';
+ if(/^(css|scss|sass|less)$/.test(e))return'css/';
+ if(/^(js|mjs|cjs|jsx)$/.test(e))return'js/';
+ if(/^(ts|tsx)$/.test(e))return'ts/';
+ if(e==='py')return'python/';
+ if(/^(sh|bash|zsh)$/.test(e))return'scripts/shell/';
+ if(/^(bat|ps1)$/.test(e))return'scripts/windows/';
+ if(EXT[e]==='cpu')return'src/'+e+'/';
+ if(/^(csv|tsv)$/.test(e))return'data/'+e+'/'; /* .json в корне не трогаем: их часто грузят по прямому адресу */
+ if(/^(pdf|docx?|odt|rtf|xlsx?|ods|pptx?|odp|epub)$/.test(e))return'files/documents/';
+ if(/^(zip|7z|rar|tar|gz|tgz|bz2|xz)$/.test(e))return'files/archives/';
+ if(/^(woff2?|ttf|otf|eot)$/.test(e))return'fonts/';
+ if(e==='wasm')return'wasm/';
+ return null; /* html и неизвестное — на месте: html это адреса страниц сайта */
+}
+function tidyPlan(){
+ const have=new Set(tree.filter(e=>e.type==='blob').map(e=>e.path)),moves=[],skip=[];
+ for(const e of tree){
+  if(e.type!=='blob'||e.path.includes('/'))continue;
+  const d=tidyDir(e.path);if(!d)continue;
+  const to=d+e.path;
+  if(have.has(to)){skip.push(e.path+' (в '+d+' уже есть файл с таким именем)');continue;}
+  moves.push({from:e.path,to,e});
+ }
+ return{moves,skip};
+}
+const dirOf=p=>p.includes('/')?p.slice(0,p.lastIndexOf('/')+1):'';
+function normP(p){const o=[];for(const s of p.split('/')){if(s==='.'||s==='')continue;if(s==='..'){if(!o.length)return null;o.pop();}else o.push(s);}return o.join('/');}
+function relP(fromDir,to){
+ const a=fromDir.split('/').filter(Boolean),b=to.split('/');let i=0;
+ while(i<a.length&&i<b.length-1&&a[i]===b[i])i++;
+ return'../'.repeat(a.length-i)+b.slice(i).join('/');
+}
+const TXF=/\.(html?|css|scss|sass|less|js|mjs|cjs|jsx|ts|tsx|md|markdown|mdx|svg|json|webmanifest|xml|ya?ml)$/i;
+/* переписывает ссылки в тексте файла: путь разрешается от старого места файла и пересчитывается от нового */
+function relink(text,oldP,newP,map,have,yml){
+ const od=dirOf(oldP),nd=dirOf(newP),re=yml?/(["'(=\s:]|^)([^\s"'()<>`{}|\\^\[\]]+\.[a-z0-9]{1,8})(?=[?#"')\s>,;]|$)/gim:/(["'(=]\s*)([^\s"'()<>`{}|\\^\[\]]+\.[a-z0-9]{1,8})(?=[?#"')\s>,;]|$)/gi;
+ let n=0;
+ const out=text.replace(re,(m,pre,u)=>{
+  if(/^[a-z][\w+.-]*:|^\/\//i.test(u))return m;
+  const abs=u.startsWith('/'),hit=normP((abs?'':od)+u);
+  if(hit==null||!have.has(hit))return m;
+  const to=map.get(hit)||hit;
+  if(to===hit&&od===nd)return m;
+  let v=abs?'/'+to:relP(nd,to);
+  if(!abs&&u.startsWith('./')&&!v.startsWith('../'))v='./'+v;
+  if(v===u)return m;
+  n++;return pre+v;
+ });
+ return{out,n};
+}
+const td=$('td'),tdl=$('tdl'),tdn=$('tdn'),tds=$('tds'),tdgo=$('tdgo');
+let TP=null;
+function esc(t){return t.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+/* permalink в front matter: страница после переноса в docs/ открывается по старому адресу */
+function addPermalink(t,url){
+ const nl=/\r\n/.test(t)?'\r\n':'\n';
+ if(/^---\r?\n/.test(t)){
+  const end=t.indexOf(nl+'---',3);if(end<0)return t;
+  if(/^permalink\s*:/m.test(t.slice(0,end)))return t;
+  return'---'+nl+'permalink: '+url+t.slice(3);
+ }
+ return'---'+nl+'permalink: '+url+nl+'---'+nl+t;
+}
+async function openTidy(){
+ if(outId>=0&&!leave())return;
+ if(!leaveOk())return;
+ const r=repos[cur],i=cur;
+ if(!r||!head){msg='Сначала дождись загрузки репозитория';ui();return;}
+ TP=tidyPlan();tidyOn=true;td.hidden=false;tds.textContent='';$('tdx').textContent='Отмена';$('tdx').disabled=false;
+ $('tdh').textContent='Навести порядок — '+r.name;
+ const g=new Map();TP.moves.forEach(m=>{const d=dirOf(m.to);if(!g.has(d))g.set(d,[]);g.get(d).push(m.from);});
+ TP.jek=tree.some(e=>/^_config\.ya?ml$/.test(e.path));
+ $('tdjl').hidden=!(TP.jek&&TP.moves.some(m=>/\.(md|markdown)$/i.test(m.from)));
+ TP.list=[...g].sort(([a],[b])=>a.localeCompare(b)).map(([d,f])=>'<span class="g">'+esc(d)+'</span>\n'+f.map(x=>'  '+esc(x)).join('\n')).join('\n')+(TP.skip.length?'\n<span class="k">пропущено:\n'+TP.skip.map(x=>'  '+esc(x)).join('\n')+'</span>':'');
+ tdl.innerHTML=TP.list||'<span class="k">нечего переносить</span>';
+ tdn.textContent=TP.moves.length?'Из корня в папки: '+TP.moves.length+' файл(ов). Страницы .html, .json и служебные файлы (README, index, _config.yml, CNAME, service worker, favicon…) остаются в корне.':'В корне уже порядок — переносить нечего.';
+ tdgo.disabled=true;
+ if(!TP.moves.length)return;
+ /* предпросмотр: читаем текстовые файлы, чтобы заранее показать, какие ссылки исправятся и что придётся проверить руками */
+ const P=TP,txt=tree.filter(e=>e.type==='blob'&&TXF.test(e.path)&&e.size<=1048576).slice(0,600);
+ P.texts=new Map();let k=0,done=0;
+ const work=async()=>{while(k<txt.length){const e=txt[k++];
+  try{const j=await gh('/repos/'+r.full_name+'/git/blobs/'+e.sha);
+   P.texts.set(e.path,{e,t:new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(Uint8Array.from(atob(j.content.replace(/\n/g,'')),c=>c.charCodeAt(0)))});
+  }catch(_){}
+  done++;if(TP===P)tds.textContent='Проверяю ссылки: '+done+' / '+txt.length;}};
+ await Promise.all([work(),work(),work(),work()]);
+ if(TP!==P||cur!==i)return;
+ tidyCompute();
+}
+/* что изменится в файлах при текущих галочках */
+function tidyCompute(){
+ const P=TP;if(!P||!P.texts)return;
+ const map=new Map(P.moves.map(m=>[m.from,m.to])),have=new Set(tree.filter(e=>e.type==='blob').map(e=>e.path));
+ const pretty=P.jek&&[...P.texts].some(([p,x])=>/^_config\.ya?ml$/.test(p)&&/^permalink\s*:\s*pretty/m.test(x.t));
+ const exts=[...new Set(P.moves.map(m=>ext(m.from)))].join('|');
+ const dyn=new RegExp('[\'"`]\\.('+exts+')[\'"`]|\\}\\.('+exts+')\\b','i');
+ P.changes=new Map();P.links=0;P.warn=[];
+ for(const[path,{e,t}]of P.texts){
+  const np=map.get(path)||path;let out=t;
+  if($('tdk').checked){const r=relink(t,path,np,map,have,/\.ya?ml$/i.test(path));if(r.n){out=r.out;P.links+=r.n;}}
+  if(P.jek&&$('tdj').checked&&map.has(path)&&/\.(md|markdown)$/i.test(path)){
+   const stem=path.replace(/\.[^.]+$/,'');out=addPermalink(out,pretty?'/'+stem+'/':'/'+stem+'.html');
+  }
+  if(out!==t)P.changes.set(path,{e,t:out});
+  if(dyn.test(t))P.warn.push(path);
+ }
+ tds.textContent='';
+ tdn.textContent='Из корня в папки: '+P.moves.length+' файл(ов), одним коммитом в ветку '+repos[cur].default_branch+'. Будет исправлено ссылок: '+P.links+', изменится файлов: '+P.changes.size+'. Страницы .html, .json и служебные файлы остаются в корне.';
+ tdl.innerHTML=P.list+(P.warn.length?'\n<span class="k">проверь вручную — эти файлы сами собирают пути (например имя + \'.md\'), их ссылки не исправить автоматически:\n'+P.warn.map(x=>'  '+esc(x)).join('\n')+'</span>':'');
+ tdgo.disabled=false;
+}
+$('tdk').onchange=$('tdj').onchange=tidyCompute;
+function closeTidy(){tidyOn=false;td.hidden=true;TP=null;applyPend();}
+async function runTidy(){
+ const r=repos[cur],P=TP,i=cur;if(!P||!P.changes)return;
+ tdgo.disabled=true;$('tdx').disabled=true;
+ const st=t=>tds.textContent=t;
+ try{
+  const base='/repos/'+r.full_name+'/git/',br=encodeURIComponent(r.default_branch);
+  st('Проверяю ветку…');
+  const ref=await gh(base+'ref/heads/'+br,{cache:'no-cache'});
+  if(ref.object.sha!==head)throw new Error('в репозитории появились новые коммиты — закрой окно и открой снова');
+  const ents=[],moved=new Map(P.moves.map(m=>[m.from,Object.assign({},m)]));
+  let n=0;
+  for(const[path,{e,t}]of P.changes){
+   st('Загружаю изменённые файлы: '+(++n)+' / '+P.changes.size);
+   const b=await gh(base+'blobs',{method:'POST',body:{content:t,encoding:'utf-8'}});
+   if(moved.has(path))moved.get(path).sha=b.sha;else ents.push({path,mode:e.mode,type:'blob',sha:b.sha});
+  }
+  for(const m of moved.values()){ents.push({path:m.to,mode:m.e.mode,type:'blob',sha:m.sha||m.e.sha});ents.push({path:m.from,mode:m.e.mode,type:'blob',sha:null});}
+  st('Создаю коммит…');
+  const c0=await gh(base+'commits/'+ref.object.sha);
+  const nt=await gh(base+'trees',{method:'POST',body:{base_tree:c0.tree.sha,tree:ents}});
+  const cm=await gh(base+'commits',{method:'POST',body:{message:'Порядок в корне: '+P.moves.length+' файл(ов) разложено по папкам'+(P.links?', исправлено ссылок: '+P.links:'')+' (cyr)',tree:nt.sha,parents:[ref.object.sha]}});
+  await gh(base+'refs/heads/'+br,{method:'PATCH',body:{sha:cm.sha,force:false}});
+  st('Готово: коммит '+cm.sha.slice(0,7)+'. Перенесено '+P.moves.length+', исправлено ссылок: '+P.links+'.');
+  $('tdx').disabled=false;$('tdx').textContent='Закрыть';TP=null;
+  if(cur===i)loadServer(i);
+ }catch(e){st('Не получилось: '+(e.msg||e.message)+(e.message==='403'||e.message==='404'?' (у токена нет права записи в этот репозиторий?)':''));$('tdx').disabled=false;tdgo.disabled=false;}
+}
+$('tdy').onclick=openTidy;
+$('tdx').onclick=closeTidy;
+tdgo.onclick=runTidy;
+td.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('tdx').disabled){e.stopPropagation();$('tdx').onclick();}});
 /* ---- переключатель WebGPU: canvas нельзя перевести между webgl и webgpu на лету, поэтому выбор запоминается и страница перезагружается ---- */
 const gp=$('gp'),gps=$('gps'),GPU_OK=!!navigator.gpu&&window.isSecureContext,isGpu=R.name==='WebGPU';
 gp.textContent=isGpu?'WebGPU: вкл':'Включить WebGPU';
@@ -752,6 +980,7 @@ build();loadRepos();
   for(const k in tg2)cam[k]+=(tg2[k]-cam[k])*.1;
   draw(false);place();
   if(outId>=0&&!edDone&&items[outId].ps>.985){edDone=true;openEd();}
+  if(pend)applyPend();
  }
  requestAnimationFrame(loop);
 })();
