@@ -41,12 +41,28 @@ input[type=color]::-moz-color-swatch{border:0;border-radius:50%}
 .tp{width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;padding:0 6px;white-space:nowrap;overflow:hidden;color:rgba(59,52,18,.85);font:700 19px/1 "Caveat","Comic Sans MS","Segoe Print",cursive;letter-spacing:.02em;
 background:repeating-linear-gradient(90deg,rgba(150,120,20,.07) 0 1px,transparent 1px 3px),linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0) 40%,rgba(120,90,0,.06)),#f8eeb0;
 clip-path:polygon(0 0,100% 0,98% 12%,100% 25%,98% 37%,100% 50%,98% 62%,100% 75%,98% 87%,100% 100%,0 100%,2% 88%,0 75%,2% 63%,0 50%,2% 37%,0 25%,2% 13%)}
+/* кабель и виртуальный планшет с сайтом репозитория */
+#cb{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;visibility:hidden}
+.tab{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(440px,calc(100vw - 24px));height:min(46vh,520px);z-index:6;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:26px;background:#14161b;box-shadow:var(--raise);transition:transform .45s cubic-bezier(.2,.8,.2,1),visibility 0s}
+.tab.off{transform:translateY(130%);visibility:hidden;transition:transform .45s cubic-bezier(.2,.8,.2,1),visibility 0s .45s}
+.tab::before{content:"";position:absolute;top:-10px;left:75%;width:30px;height:12px;margin-left:-15px;border-radius:5px 5px 0 0;background:#2b2e36}
+.tb{display:flex;align-items:center;gap:6px;color:#cfd5e6;font-size:12px}
+#tu{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#23262d;border-radius:999px;padding:7px 12px}
+.tb button{flex:none;width:30px;height:30px;border:0;border-radius:50%;background:#23262d;color:#e6ebff;font:inherit;font-size:15px;cursor:pointer}
+.ts{position:relative;flex:1;min-height:0;border-radius:14px;overflow:hidden;background:#fff}
+#fr{width:100%;height:100%;border:0;display:block;background:#fff}
+.tn{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:#444;background:#f3f5fb}
+.tn[hidden]{display:none}
+.fs #c,.fs #labels,.fs #menu,.fs #cb{display:none}
+.fs .tab{inset:0;width:auto;height:auto;border-radius:0;padding:calc(8px + env(safe-area-inset-top,0px)) 8px calc(8px + env(safe-area-inset-bottom,0px));transform:none;box-shadow:none}
+.fs .tab::before{display:none}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #4f6cff;outline-offset:3px}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="labels" aria-hidden="true"></div>
+<svg id="cb" aria-hidden="true"><path id="cpth" fill="none" stroke="#15161a" stroke-width="5" stroke-linecap="round" style="filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))"/><circle id="cpl" r="6" fill="#23262d" stroke="#aab2c5" stroke-width="2"/></svg>
 <div id="menu">
 <div class="mh">
 <div class="mt"><div id="name"></div><div id="meta"></div></div>
@@ -56,6 +72,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 <div id="mb" hidden>
 <div class="row"><select id="srv" aria-label="Сервер (репозиторий)"></select></div>
 <div class="row" id="pgr" hidden><button id="pp" class="btn" aria-label="Назад">‹</button><span id="pl"></span><button id="pn" class="btn" aria-label="Дальше">›</button></div>
+<div class="row"><button id="tb" class="btn">Планшет</button></div>
 <div class="row" id="sw"></div>
 <div class="row"><label>свой <input type="color" id="cc" value="#ffb68a" disabled></label>
 <button id="rs" class="btn" disabled>Сбросить</button></div>
@@ -65,6 +82,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 <div class="lg"><i style="background:#8a919f"></i>RTX 4080: html, css</div>
 <div class="lg"><i style="background:#f1ecff"></i>SSD: фото, видео, аудио</div></div>
 </div>
+</div>
+<div id="tab" class="tab off">
+<div class="tb"><span id="tu"></span><button id="tr" aria-label="Обновить">↻</button><button id="tf" aria-label="Во весь экран">⤢</button><button id="tx" aria-label="Отключить планшет">✕</button></div>
+<div class="ts"><iframe id="fr" title="Сайт репозитория" sandbox="allow-scripts allow-forms allow-popups allow-modals" referrerpolicy="no-referrer"></iframe><div id="tn" class="tn" hidden></div></div>
 </div>
 <script>
 (()=>{
@@ -117,7 +138,7 @@ const ext=f=>f.split('.').pop().toLowerCase();
 const LZ={cpu:-.75,gpu:.45,ssd:1.35},LW={cpu:1.1,gpu:2.45,ssd:2},MAXL=6;
 const YC=[5.74,4.29,2.84,1.39],Z0=1.95,TRAVEL=3;
 const dr=YC.map((yc,i)=>({n:'',yc,a:0,id:i+1,on:false}));
-let repos=[],cur=0,cellsAll=[],pg=0,CELLS=[],items=[],msg='';
+let repos=[],cur=0,cellsAll=[],pg=0,CELLS=[],items=[],msg='',tabOn=false,fs=false,fsrc='';
 const K='#0d0e10',IN='#1c1d21',TR='#2b2d33',FSC='#1a1c22',SHF='#2a2d35';
 /* цельный корпус: боковины и крышка/дно перекрываются и скруглены одинаково — швов нет */
 const frame=[
@@ -200,6 +221,15 @@ function drawer(d,pick){
  box([2.19,y-.12,zc],[.12,.45,3.4],B(TR),.05);
  box([0,y-.12,zc-1.64],[4.5,.45,.12],B(TR),.05);
 }
+/* разъём для планшета на правой стойке: хромированная рамка, чёрный паз и светодиод (зелёный — подключено) */
+const PORT=[3,7.6,2.15];
+function port(pick){
+ const c=h=>pick?[5/255,0,0]:hex(h);
+ if(pick)box([3,7.7,2.2],[1,.9,.2],c(0),.02);
+ box([3,7.6,2.12],[.56,.34,.05],c(CHR),.04);
+ box([3,7.6,2.14],[.4,.18,.02],c(BLK),.02);
+ box([3,7.98,2.12],[.12,.12,.04],c(tabOn?'#5dff9a':'#3a3f4a'),.03);
+}
 function parts(it,pick){
  const d=dr[it.cell],k=Math.min(1,Math.max(0,(d.a-.12)*2)),c=it.sc;
  if(k<.03)return;
@@ -223,6 +253,7 @@ function draw(pick){
  gl.useProgram(pg1);
  gl.uniformMatrix4fv(L1.vp,false,VP);gl.uniform1f(L1.pick,S.pick);gl.uniform1f(L1.hi,0);gl.uniform3fv(L1.vd,S.vd);
  for(const[t,s,c,r]of frame)box(t,s,pick?[0,0,0]:hex(c),r);
+ port(pick);
  for(const d of dr)drawer(d,pick);
  for(const it of items)parts(it,pick);
 }
@@ -240,6 +271,7 @@ function proj(x,y,z){
  for(let r=0;r<4;r++)for(let k=0;k<4;k++)o[r]+=VP[k*4+r]*p[k];
  return[(o[0]*.5+.5)*innerWidth,(1-(o[1]*.5+.5))*innerHeight];
 }
+const tab=$('tab'),fr=$('fr'),tn=$('tn'),cb=$('cb');
 function place(){
  dr.forEach((d,i)=>{
   const z=Z0+.24+d.a*TRAVEL,x0=-2.3,y0=d.yc+.4;
@@ -248,7 +280,46 @@ function place(){
   tapes[i].style.transform='matrix('+[(b[0]-a[0])/TPX,(b[1]-a[1])/TPX,(c[0]-a[0])/TPY,(c[1]-a[1])/TPY,a[0],a[1]].join(',')+')';
   tapes[i].style.opacity=d.on?Math.max(0,Math.min(1,1-cover*4)):0;
  });
+ /* кабель: от разъёма на стойке к штекеру на верхнем крае планшета */
+ if(tabOn){
+  const s=proj(PORT[0],PORT[1],PORT[2]),r=tab.getBoundingClientRect(),ex=r.left+r.width*.75,ey=r.top-6;
+  $('cpth').setAttribute('d','M'+s+' C'+(s[0]+90)+','+(s[1]+20)+' '+ex+','+(ey-140)+' '+ex+','+ey);
+  $('cpl').setAttribute('cx',s[0]);$('cpl').setAttribute('cy',s[1]);
+  cb.style.visibility='visible';
+ }else cb.style.visibility='hidden';
 }
+
+/* ---- планшет: сайт выбранного репозитория во встроенном окне ---- */
+function siteUrl(r){
+ if(!r)return'';
+ const h=(r.homepage||'').trim();
+ if(/^https?:\/\//i.test(h))return h;
+ if(!r.has_pages)return'';
+ const o=r.owner.login.toLowerCase();
+ return r.name.toLowerCase()===o+'.github.io'?'https://'+r.name+'/':'https://'+o+'.github.io/'+r.name+'/';
+}
+function setSite(){
+ if(!tabOn)return;
+ const u=siteUrl(repos[cur]);
+ $('tu').textContent=u?u.replace(/^https?:\/\//,''):(repos[cur]?repos[cur].name:'');
+ if(u){tn.hidden=true;if(fsrc!==u){fr.src=u;fsrc=u;}}
+ else{tn.hidden=false;tn.textContent='У этого репозитория нет сайта. Включи GitHub Pages или укажи адрес в поле homepage.';fr.removeAttribute('src');fsrc='';}
+}
+function setFs(v){
+ fs=v;document.body.classList.toggle('fs',v);$('tf').textContent=v?'⤡':'⤢';
+ try{if(v&&document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});
+ else if(!v&&document.fullscreenElement)document.exitFullscreen();}catch(e){}
+}
+function setTab(v){
+ tabOn=v;tab.classList.toggle('off',!v);$('tb').textContent=v?'Отключить планшет':'Планшет';
+ if(v)setSite();else{setFs(false);fr.removeAttribute('src');fsrc='';}
+}
+$('tb').onclick=()=>setTab(!tabOn);
+$('tx').onclick=()=>setTab(false);
+$('tf').onclick=()=>setFs(!fs);
+$('tr').onclick=()=>{if(fsrc){fr.src='about:blank';requestAnimationFrame(()=>{fr.src=fsrc;});}};
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&fs)setFs(false);});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&fs)setFs(false);});
 
 /* ---- GitHub: репозитории → серверы, папки → ящики, файлы → детали ---- */
 const api=async u=>{
@@ -272,7 +343,7 @@ function build(){
  ui();
 }
 async function loadServer(i){
- cur=i;pg=0;cellsAll=[];msg='Загружаю…';build();
+ cur=i;pg=0;cellsAll=[];msg='Загружаю…';build();setSite();
  const r=repos[i];
  try{
   const t=await api('/repos/'+r.full_name+'/git/trees/'+encodeURIComponent(r.default_branch)+'?recursive=1');
@@ -318,6 +389,7 @@ cv.addEventListener('pointerup',e=>{
  down=null;
 });
 function tap(id){
+ if(id===5){setTab(!tabOn);return;}
  if(id>=1&&id<=4){if(dr[id-1].on){od=od===id-1?-1:id-1;sel=-1;}}
  else if(id>=10&&id<10+items.length){sel=sel===id-10?-1:id-10;if(sel>=0)menu(true);}
  else if(id>=200){sel=-1;}
@@ -353,14 +425,16 @@ $('pn').onclick=()=>{pg++;build();};
 $('lo').onclick=()=>{sessionStorage.removeItem('cyr_token');location.replace('index.html');};
 build();loadRepos();
 
-/* ---- цикл ---- */
+/* ---- цикл (в полноэкранном режиме сцена не рисуется) ---- */
 (function loop(){
- resize();
- dr.forEach((d,i)=>{d.a+=((i===od?1:0)-d.a)*.14;});
- items.forEach((it,i)=>{it.y+=((i===sel?.3:0)-it.y)*.18;});
- const tg2=od<0?{y:4.8,z:0,H:5.8,W:4.1,e:.45}:{y:YC[od]-.1,z:3,H:2.9,W:3.3,e:.95};
- for(const k in tg2)cam[k]+=(tg2[k]-cam[k])*.1;
- draw(false);place();
+ if(!fs){
+  resize();
+  dr.forEach((d,i)=>{d.a+=((i===od?1:0)-d.a)*.14;});
+  items.forEach((it,i)=>{it.y+=((i===sel?.3:0)-it.y)*.18;});
+  const tg2=od<0?{y:4.8,z:0,H:5.8,W:4.1,e:.45}:{y:YC[od]-.1,z:3,H:2.9,W:3.3,e:.95};
+  for(const k in tg2)cam[k]+=(tg2[k]-cam[k])*.1;
+  draw(false);place();
+ }
  requestAnimationFrame(loop);
 })();
 })();
