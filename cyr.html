@@ -3,46 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>cyr — тест сервера</title>
+<title>cyr — сервер</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&display=swap" rel="stylesheet">
 <style>
-:root{--ink:#fff;--sub:#c9d6ff;--panel:rgba(8,22,70,.84);--line:rgba(255,255,255,.25);--bg:#1b45c4;
+:root{--card:#e4ecff;--ink:#1b2767;--sub:#4b5b9e;--shd:rgba(28,48,140,.38);--shl:rgba(255,255,255,.7);--ih:rgba(255,255,255,.7);--id:rgba(70,95,190,.25);--bg:#7ea6ff;
+--raise:10px 12px 26px var(--shd),-8px -8px 20px var(--shl),inset -7px -7px 14px var(--id),inset 7px 7px 14px var(--ih);
+--raise-s:4px 5px 10px var(--shd),-3px -3px 8px var(--shl),inset -3px -3px 6px var(--id),inset 3px 3px 6px var(--ih);
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--panel:rgba(4,12,44,.88);--sub:#b7c8ff}}
-:root[data-theme="dark"]{--panel:rgba(4,12,44,.88);--sub:#b7c8ff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--card:#34458f;--ink:#f0f4ff;--sub:#c3d0ff;--shd:rgba(5,12,50,.55);--shl:rgba(150,175,255,.28);--ih:rgba(190,205,255,.25);--id:rgba(0,0,40,.4)}}
+:root[data-theme="dark"]{--card:#34458f;--ink:#f0f4ff;--sub:#c3d0ff;--shd:rgba(5,12,50,.55);--shl:rgba(150,175,255,.28);--ih:rgba(190,205,255,.25);--id:rgba(0,0,40,.4)}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
-html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 "Nunito","Varela Round","SF Pro Rounded","Segoe UI",system-ui,sans-serif;overflow:hidden}
 #c{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
-#hud{position:fixed;left:14px;top:calc(12px + env(safe-area-inset-top,0px));pointer-events:none;text-shadow:0 1px 4px rgba(0,0,40,.6)}
-#hud h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.02em}
+#hud,#panel{background:var(--card);color:var(--ink);border-radius:28px;box-shadow:var(--raise)}
+#hud{position:fixed;left:14px;top:calc(12px + env(safe-area-inset-top,0px));padding:12px 18px;pointer-events:none}
+#hud h1{margin:0;font-size:20px;font-weight:800}
 #hud p{margin:2px 0 8px;color:var(--sub);font-size:13px}
 .lg{font-size:13px;display:flex;align-items:center;gap:7px;margin:2px 0}
-.lg i{width:10px;height:10px;border-radius:2px;display:inline-block}
-.tag{position:fixed;transform:translate(-50%,-50%);font:600 13px "Segoe UI",system-ui,sans-serif;color:#fff;text-shadow:0 1px 4px rgba(0,0,40,.8);pointer-events:none;white-space:nowrap}
-#panel{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-width:460px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-#name{font-weight:700;font-size:16px}
+.lg i{width:13px;height:13px;border-radius:50%;display:inline-block;box-shadow:inset -2px -2px 4px rgba(0,0,0,.2),inset 2px 2px 4px rgba(255,255,255,.6)}
+.tag{position:fixed;transform:translate(-50%,-50%);padding:5px 14px;border-radius:999px;background:var(--card);color:var(--ink);font-weight:800;font-size:13px;white-space:nowrap;pointer-events:none;box-shadow:var(--raise-s)}
+#panel{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-width:460px;margin:0 auto;padding:16px 20px}
+#name{font-weight:800;font-size:16px}
 #meta{color:var(--sub);font-size:13px;margin-bottom:8px}
 .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
 .row label{font-size:13px;color:var(--sub);display:flex;align-items:center;gap:6px}
-.sw{width:28px;height:28px;border-radius:6px;border:2px solid var(--line);padding:0;cursor:pointer}
-.sw:disabled,#rs:disabled,#cc:disabled{opacity:.4;cursor:default}
-input[type=color]{width:34px;height:28px;border:0;padding:0;background:none}
-button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:2px}
-#rs{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 10px;font:inherit;font-size:13px;cursor:pointer}
-:root{--card:#e4ecff;--ink:#1b2767;--sub:#4b5b9e;--shd:rgba(28,48,140,.38);--shl:rgba(255,255,255,.7);--ih:rgba(255,255,255,.7);--id:rgba(70,95,190,.25);--bg:#7ea6ff}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--card:#34458f;--ink:#f0f4ff;--sub:#c3d0ff;--shd:rgba(5,12,50,.55);--shl:rgba(150,175,255,.28);--ih:rgba(190,205,255,.25);--id:rgba(0,0,40,.4)}}
-:root[data-theme="dark"]{--card:#34458f;--ink:#f0f4ff;--sub:#c3d0ff;--shd:rgba(5,12,50,.55);--shl:rgba(150,175,255,.28);--ih:rgba(190,205,255,.25);--id:rgba(0,0,40,.4)}
-html,body{font-family:"Nunito","Varela Round","SF Pro Rounded","Segoe UI",system-ui,sans-serif}
-#hud,#panel{background:var(--card);color:var(--ink);border:0;border-radius:30px;text-shadow:none;box-shadow:10px 12px 26px var(--shd),-8px -8px 20px var(--shl),inset -7px -7px 14px var(--id),inset 7px 7px 14px var(--ih)}
-#hud{padding:12px 18px;left:14px;border-radius:26px}
-#panel{padding:16px 20px}
-#name,#hud h1{font-weight:800}
-.tag{background:var(--card);color:var(--ink);font-family:inherit;font-weight:800;padding:5px 14px;border-radius:999px;text-shadow:none;box-shadow:4px 5px 10px var(--shd),-3px -3px 8px var(--shl),inset -3px -3px 6px var(--id),inset 3px 3px 6px var(--ih)}
-.lg i{width:13px;height:13px;border-radius:50%;box-shadow:inset -2px -2px 4px rgba(0,0,0,.2),inset 2px 2px 4px rgba(255,255,255,.6)}
-.sw{border:0;width:30px;height:30px;border-radius:50%;box-shadow:3px 4px 8px var(--shd),-2px -2px 6px var(--shl),inset -3px -3px 6px rgba(0,0,0,.16),inset 3px 3px 6px rgba(255,255,255,.55)}
-#rs{background:var(--card);color:var(--ink);border:0;border-radius:999px;padding:8px 16px;font-weight:800;box-shadow:4px 5px 10px var(--shd),-3px -3px 8px var(--shl),inset -3px -3px 6px var(--id),inset 3px 3px 6px var(--ih)}
-input[type=color]{-webkit-appearance:none;appearance:none;width:34px;height:34px;padding:4px;border-radius:50%;background:var(--card);box-shadow:3px 4px 8px var(--shd),-2px -2px 6px var(--shl),inset -2px -2px 5px var(--id),inset 2px 2px 5px var(--ih)}
+.sw{width:30px;height:30px;border-radius:50%;border:0;padding:0;cursor:pointer;box-shadow:3px 4px 8px var(--shd),-2px -2px 6px var(--shl),inset -3px -3px 6px rgba(0,0,0,.16),inset 3px 3px 6px rgba(255,255,255,.55)}
+.btn{background:var(--card);color:var(--ink);border:0;border-radius:999px;padding:8px 16px;font:inherit;font-weight:800;font-size:13px;cursor:pointer;box-shadow:var(--raise-s)}
+.sw:disabled,.btn:disabled,input:disabled{opacity:.4;cursor:default}
+input[type=color]{-webkit-appearance:none;appearance:none;width:34px;height:34px;padding:4px;border:0;border-radius:50%;background:var(--card);box-shadow:var(--raise-s)}
 input[type=color]::-webkit-color-swatch-wrapper{padding:0}
 input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
 input[type=color]::-moz-color-swatch{border:0;border-radius:50%}
@@ -51,18 +40,19 @@ button:focus-visible,input:focus-visible{outline:3px solid #4f6cff;outline-offse
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="hud"><h1>cyr-test</h1><p>тестовый сервер: 3 ячейки, 8 файлов</p>
+<div id="hud"><h1>cyr-test</h1><p>сервер: 4 ящика, 10 файлов</p>
 <div class="lg"><i style="background:#ffb68a"></i>Процессор: .py .js .sh</div>
 <div class="lg"><i style="background:#8de0b7"></i>Видеокарта: .html .css</div>
 <div class="lg"><i style="background:#f1ecff"></i>SSD: .png .mp4 .mp3</div></div>
 <div id="labels"></div>
 <div id="panel">
-<div id="name">Выберите деталь</div>
-<div id="meta">Нажмите на деталь. Перетаскивание вращает сцену.</div>
+<div id="name"></div>
+<div id="meta"></div>
 <div class="row"><span id="sw" class="row" style="margin:0;gap:6px"></span>
-<label>свой <input type="color" id="cc" value="#ffb454" disabled></label>
-<button id="rs" disabled>Сбросить цвет</button></div>
-<div class="row"><label>Фон <input type="color" id="bg" value="#7ea6ff"></label></div>
+<label>свой <input type="color" id="cc" value="#ffb68a" disabled></label>
+<button id="rs" class="btn" disabled>Сбросить цвет</button></div>
+<div class="row"><label>Фон <input type="color" id="bg" value="#7ea6ff"></label>
+<button id="cl" class="btn" hidden>Закрыть ящик</button></div>
 </div>
 <script>
 (()=>{
@@ -72,33 +62,37 @@ if(!gl){$('name').textContent='WebGL недоступен в этом брауз
 const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
 const toHex=c=>'#'+c.map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
 
-/* ---- данные: сервер, ячейки, файлы ---- */
+/* ---- данные: сервер (стойка) → ящики (папки) → детали (файлы) ---- */
 const TYPES={
  cpu:{name:'Процессор',col:'#ffb68a',parts:[
-  {o:[0,.05,0],s:[1.32,.1,1.32],f:.4},{o:[0,.17,0],s:[1.2,.34,1.2],f:1},{o:[0,.41,0],s:[.7,.14,.7],f:.55}]},
+  {o:[0,.04,0],s:[1.05,.08,1.05],f:.4},{o:[0,.14,0],s:[.95,.2,.95],f:1},{o:[0,.27,0],s:[.55,.06,.55],f:.55}]},
  gpu:{name:'Видеокарта',col:'#8de0b7',parts:[
-  {o:[0,.15,0],s:[2.6,.3,.95],f:1},{o:[-.6,.35,0],s:[.72,.1,.72],f:.35},{o:[.6,.35,0],s:[.72,.1,.72],f:.35},
-  {o:[-1.3,.3,0],s:[.1,.6,.95],c:'#dfe6f7'}]},
+  {o:[0,.11,0],s:[2.2,.22,.8],f:1},{o:[-.5,.25,0],s:[.58,.06,.58],f:.35},{o:[.5,.25,0],s:[.58,.06,.58],f:.35},
+  {o:[-1.15,.2,0],s:[.08,.4,.8],c:'#dfe6f7'}]},
  ssd:{name:'SSD',col:'#f1ecff',parts:[
-  {o:[0,.12,0],s:[2,.24,1.1],f:1},{o:[.15,.25,0],s:[1.2,.04,.7],f:.5},{o:[-1.12,.08,0],s:[.24,.16,.9],c:'#ffd98a'}]}
+  {o:[0,.09,0],s:[1.7,.18,.9],f:1},{o:[.1,.2,0],s:[1,.03,.55],f:.5},{o:[-.95,.06,0],s:[.2,.12,.7],c:'#ffd98a'}]}
 };
 const EXT={py:'cpu',js:'cpu',sh:'cpu',html:'gpu',css:'gpu',png:'ssd',mp4:'ssd',mp3:'ssd'};
 const CELLS=[
  {n:'core/',f:['main.py','app.js','build.sh']},
  {n:'web/',f:['index.html','style.css']},
- {n:'media/',f:['cover.png','intro.mp4','theme.mp3']}];
-const CX=[-4.2,0,4.2],items=[];
+ {n:'media/',f:['cover.png','intro.mp4','theme.mp3']},
+ {n:'tools/',f:['deploy.sh','sync.py']}];
+const YC=[5.74,4.29,2.84,1.39],Z0=1.95,TRAVEL=3;
+const dr=CELLS.map((c,i)=>({n:c.n,yc:YC[i],a:0,id:i+1}));
+const items=[];
 CELLS.forEach((c,ci)=>c.f.forEach((f,i)=>{
- const t=EXT[f.split('.').pop()];
- items.push({id:items.length+1,name:f,type:t,cell:c.n,x:CX[ci],z:(i-(c.f.length-1)/2)*1.45,y:0,col:hex(TYPES[t].col)});
+ const t=EXT[f.split('.').pop()],n=c.f.length,cpu=t==='cpu';
+ items.push({id:10+items.length,name:f,type:t,cell:ci,lx:cpu?(i-(n-1)/2)*1.45:0,lz:cpu?0:(i-(n-1)/2)*1.05,y:0,col:hex(TYPES[t].col)});
 }));
-const statics=[[[0,-.45,0],[13,.4,5.6],'#5a82e6']];
-CX.forEach(x=>{
- statics.push([[x,-.125,0],[3.7,.25,4.6],'#a9c4ff']);
- statics.push([[x,-.45,2.82],[.3,.1,.04],'#8de0b7']);
-});
+const K='#0d0e10',IN='#1c1d21',TR='#2b2d33';
+const frame=[
+ [[-3,4.8,0],[.8,9.6,4.2],K],[[3,4.8,0],[.8,9.6,4.2],K],
+ [[0,.25,0],[5.2,.5,4.2],K],[[0,9.35,0],[5.2,.5,4.2],K],
+ [[0,4.8,-1.95],[5.2,8.6,.3],IN,.05],
+ [[0,-.15,0],[10,.3,7.4],'#5a82e6',.12]];
 
-/* ---- WebGL ---- */
+/* ---- WebGL: скруглённые боксы ---- */
 const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;};
 const pg=gl.createProgram();
 gl.attachShader(pg,sh(gl.VERTEX_SHADER,'attribute vec3 g;uniform mat4 vp;uniform vec3 t,s;uniform float r;varying vec3 vn;void main(){vec3 a=abs(g),sg=sign(g);vn=normalize(sg*max((a-.5)*2.,0.));vec3 b=s*.5-r;gl_Position=vp*vec4(sg*min(a*2.,1.)*b+r*vn+t,1.);}'));
@@ -113,7 +107,7 @@ for(let a=0;a<3;a++)for(const f of[1,-1]){
   const p=[0,0,0];p[a]=f;p[u]=G[i+q];p[v]=G[j+w];V.push(...p);
  }}
 const NV=V.length/3;
-const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(V),gl.STATIC_DRAW);
+gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(V),gl.STATIC_DRAW);
 {const l=gl.getAttribLocation(pg,'g');gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,3,gl.FLOAT,false,0,0);}
 gl.enable(gl.DEPTH_TEST);
 
@@ -121,38 +115,56 @@ const mul=(a,b)=>{const o=new Array(16).fill(0);for(let c=0;c<4;c++)for(let r=0;
 const rotY=a=>{const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1];};
 const rotX=a=>{const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1];};
 
-let yaw=Math.PI/4,sel=-1,bg=hex('#7ea6ff'),VP=null,W=1,H=1,dpr=1;
+let yaw=.3,sel=-1,od=-1,bg=hex('#7ea6ff'),VP=null,W=1,H=1,dpr=1;
+const cam={y:4.8,z:0,H:6.6,W:4.1,e:.45};
 function resize(){
  dpr=Math.min(devicePixelRatio||1,2);
  const w=Math.floor(innerWidth*dpr),h=Math.floor(innerHeight*dpr);
  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
  W=w;H=h;
 }
-function box(t,s,c){gl.uniform3fv(uT,t);gl.uniform3fv(uS,s);gl.uniform3fv(uC,c);gl.uniform1f(uR,Math.min(.2,.45*Math.min(s[0],s[1],s[2])));gl.drawArrays(gl.TRIANGLES,0,NV);}
+function box(t,s,c,r){gl.uniform3fv(uT,t);gl.uniform3fv(uS,s);gl.uniform3fv(uC,c);gl.uniform1f(uR,Math.min(r===undefined?.2:r,.45*Math.min(s[0],s[1],s[2])));gl.drawArrays(gl.TRIANGLES,0,NV);}
+
+function drawer(d,pick){
+ const s=d.a*TRAVEL,y=d.yc,zc=Z0-1.7+s,i=d.id-1;
+ const F=h=>pick?[d.id/255,0,0]:hex(h),B=h=>pick?[(20+i)/255,0,0]:hex(h);
+ box([0,y,Z0+.1+s],[4.7,.96,.2],F(K),.1);
+ box([0,y,Z0+.2+s],[4.3,.62,.04],F(IN),.02);
+ box([0,y-.4,zc],[4.5,.12,3.4],B(TR),.05);
+ box([-2.19,y-.12,zc],[.12,.45,3.4],B(TR),.05);
+ box([2.19,y-.12,zc],[.12,.45,3.4],B(TR),.05);
+ box([0,y-.12,zc-1.64],[4.5,.45,.12],B(TR),.05);
+}
+function parts(it,pick){
+ const d=dr[it.cell],k=Math.min(1,Math.max(0,(d.a-.12)*2));
+ if(k<.03)return;
+ const zc=Z0-1.7+d.a*TRAVEL,bx=it.lx,by=d.yc-.34+it.y,bz=zc+it.lz-.35;
+ gl.uniform1f(uH,!pick&&it.id-10===sel?.14:0);
+ for(const p of TYPES[it.type].parts){
+  const col=pick?[it.id/255,0,0]:p.c?hex(p.c):it.col.map(v=>v*p.f);
+  box([bx+p.o[0],by+p.o[1]*k,bz+p.o[2]],[p.s[0],p.s[1]*k,p.s[2]],col);
+ }
+}
 function draw(pick){
- const asp=W/H,sc=Math.max(5.6,8.2/asp);
- const P=[1/(sc*asp),0,0,0,0,1/sc,0,0,0,0,-.02,0,0,0,0,1];
- VP=mul(P,mul(rotX(.56),rotY(yaw)));
+ const asp=W/H,sc=Math.max(cam.H,cam.W/asp),e=cam.e;
+ const P=[1/(sc*asp),0,0,0,0,1/sc,0,0,0,0,-.02,0,0,.2,0,1];
+ const T=[1,0,0,0,0,1,0,0,0,0,1,0,0,-cam.y,-cam.z,1];
+ VP=mul(P,mul(rotX(e),mul(rotY(yaw),T)));
  gl.viewport(0,0,W,H);
  if(pick)gl.clearColor(0,0,0,1);else gl.clearColor(bg[0],bg[1],bg[2],1);
  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
- gl.uniformMatrix4fv(uVP,false,VP);gl.uniform1f(uP,pick?1:0);gl.uniform3f(uV,-Math.sin(yaw)*Math.cos(.56),Math.sin(.56),Math.cos(yaw)*Math.cos(.56));
- gl.uniform1f(uH,0);
- for(const[t,s,c]of statics)box(t,s,pick?[0,0,0]:hex(c));
- for(const it of items){
-  gl.uniform1f(uH,!pick&&it.id-1===sel?.14:0);
-  for(const p of TYPES[it.type].parts){
-   const col=pick?[it.id/255,0,0]:p.c?hex(p.c):it.col.map(v=>v*p.f);
-   box([it.x+p.o[0],it.y+p.o[1],it.z+p.o[2]],p.s,col);
-  }
- }
+ gl.uniformMatrix4fv(uVP,false,VP);gl.uniform1f(uP,pick?1:0);gl.uniform1f(uH,0);
+ gl.uniform3f(uV,-Math.sin(yaw)*Math.cos(e),Math.sin(e),Math.cos(yaw)*Math.cos(e));
+ for(const[t,s,c,r]of frame)box(t,s,pick?[0,0,0]:hex(c),r);
+ for(const d of dr)drawer(d,pick);
+ for(const it of items)parts(it,pick);
 }
 
-/* ---- подписи ячеек ---- */
-const tags=CELLS.map(c=>{const d=document.createElement('div');d.className='tag';d.textContent=c.n;$('labels').appendChild(d);return d;});
+/* ---- подписи ящиков ---- */
+const tags=dr.map(d=>{const e=document.createElement('div');e.className='tag';e.textContent=d.n;$('labels').appendChild(e);return e;});
 function place(){
- CX.forEach((x,i)=>{
-  const p=[x,-.5,3.5,1],o=[0,0,0,0];
+ dr.forEach((d,i)=>{
+  const p=[0,d.yc,Z0+.4+d.a*TRAVEL,1],o=[0,0,0,0];
   for(let r=0;r<4;r++)for(let k=0;k<4;k++)o[r]+=VP[k*4+r]*p[k];
   tags[i].style.left=((o[0]*.5+.5)*innerWidth)+'px';
   tags[i].style.top=((1-(o[1]*.5+.5))*innerHeight)+'px';
@@ -165,41 +177,56 @@ cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,m:0};cv.setP
 cv.addEventListener('pointermove',e=>{
  if(!down)return;
  const dx=e.clientX-down.x;down.m+=Math.abs(dx)+Math.abs(e.clientY-down.y);
- yaw+=dx*.008;down.x=e.clientX;down.y=e.clientY;
+ yaw=Math.max(-.9,Math.min(.9,yaw+dx*.008));down.x=e.clientX;down.y=e.clientY;
 });
 cv.addEventListener('pointerup',e=>{
  if(down&&down.m<6){
   draw(true);
   const px=new Uint8Array(4);
   gl.readPixels(Math.floor(e.clientX*dpr),Math.floor(H-e.clientY*dpr-1),1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);
-  select(px[0]>=1&&px[0]<=items.length?px[0]-1:-1);
+  tap(px[0]);
  }
  down=null;
 });
+function tap(id){
+ if(id>=1&&id<=4){od=od===id-1?-1:id-1;sel=-1;}
+ else if(id>=10&&id<10+items.length){sel=sel===id-10?-1:id-10;}
+ else if(id>=20&&id<=23){sel=-1;}
+ else if(sel>=0){sel=-1;}
+ else{od=-1;}
+ ui();
+}
 
 /* ---- панель ---- */
-const sw=$('sw'),cc=$('cc'),rs=$('rs');
+const sw=$('sw'),cc=$('cc'),rs=$('rs'),cl=$('cl');
 ['#ffb68a','#8de0b7','#f1ecff','#ff9fb8','#c3b0ff','#8fd8ff','#ffe58a','#ffa57a'].forEach(c=>{
  const b=document.createElement('button');b.className='sw';b.style.background=c;b.disabled=true;b.setAttribute('aria-label','Цвет '+c);
  b.onclick=()=>paint(c);sw.appendChild(b);
 });
 function paint(c){if(sel<0)return;items[sel].col=hex(c);cc.value=c;}
-function select(i){
- sel=i;const on=i>=0;
+function ui(){
+ const on=sel>=0;
  sw.querySelectorAll('button').forEach(b=>b.disabled=!on);cc.disabled=rs.disabled=!on;
- if(on){const it=items[i];$('name').textContent=it.name;$('meta').textContent=TYPES[it.type].name+', ячейка '+it.cell;cc.value=toHex(it.col);}
- else{$('name').textContent='Выберите деталь';$('meta').textContent='Нажмите на деталь. Перетаскивание вращает сцену.';}
+ cl.hidden=od<0;
+ if(on){const it=items[sel];$('name').textContent=it.name;$('meta').textContent=TYPES[it.type].name+', ящик '+CELLS[it.cell].n;cc.value=toHex(it.col);}
+ else if(od>=0){$('name').textContent=CELLS[od].n;$('meta').textContent='Ящик открыт, файлов: '+CELLS[od].f.length+'. Нажмите на деталь.';}
+ else{$('name').textContent='cyr-test';$('meta').textContent='Нажмите на ящик, чтобы открыть его. Перетаскивание вращает сцену.';}
 }
 cc.oninput=()=>paint(cc.value);
 rs.onclick=()=>{if(sel>=0){const it=items[sel];it.col=hex(TYPES[it.type].col);cc.value=TYPES[it.type].col;}};
+cl.onclick=()=>{od=-1;sel=-1;ui();};
 $('bg').oninput=e=>{bg=hex(e.target.value);document.documentElement.style.setProperty('--bg',e.target.value);};
+ui();
 
 /* ---- цикл ---- */
-(function frame(){
+(function loop(){
  resize();
- items.forEach((it,i)=>{it.y+=((i===sel?.35:0)-it.y)*.18;});
+ dr.forEach((d,i)=>{d.a+=((i===od?1:0)-d.a)*.14;});
+ items.forEach((it,i)=>{it.y+=((i===sel?.3:0)-it.y)*.18;});
+ const tg=od<0?{y:4.8,z:0,H:6.6,W:4.1,e:.45}:{y:YC[od]-.2,z:3,H:2.9,W:3.3,e:.95};
+ for(const k in tg)cam[k]+=(tg[k]-cam[k])*.1;
  draw(false);place();
- requestAnimationFrame(frame);
+ requestAnimationFrame(loop);
 })();
 })();
 </script>
