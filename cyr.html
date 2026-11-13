@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>cyr — сервер</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&family=Caveat:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{--card:#e4ecff;--ink:#1b2767;--sub:#4b5b9e;--shd:rgba(28,48,140,.38);--shl:rgba(255,255,255,.7);--ih:rgba(255,255,255,.7);--id:rgba(70,95,190,.25);--bg:#7ea6ff;
@@ -15,17 +16,27 @@ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:en
 :root[data-theme="dark"]{--card:#34458f;--ink:#f0f4ff;--sub:#c3d0ff;--shd:rgba(5,12,50,.55);--shl:rgba(150,175,255,.28);--ih:rgba(190,205,255,.25);--id:rgba(0,0,40,.4)}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1.35 "Nunito","Varela Round","SF Pro Rounded","Segoe UI",system-ui,sans-serif;overflow:hidden}
+/* атрибут hidden должен работать и у элементов с собственным display (.row, .ib и т.п.) */
+[hidden]{display:none!important}
 #c{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
 #menu{position:fixed;left:12px;top:calc(10px + env(safe-area-inset-top,0px));width:min(224px,calc(100vw - 24px));padding:10px 12px;border-radius:24px;background:var(--card);color:var(--ink);box-shadow:var(--raise)}
 .mh{display:flex;align-items:center;gap:8px}
 .mt{flex:1;min-width:0}
 #name{font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#meta{color:var(--sub);font-size:12px}
+#meta{color:var(--sub);font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .ib{flex:none;width:32px;height:32px;border:0;padding:0;border-radius:50%;display:grid;place-items:center;background:var(--card);color:var(--ink);cursor:pointer;box-shadow:var(--raise-s)}
 .ib svg{width:16px;height:16px;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;fill:none}
-#mb{margin-top:8px}
-.gps{flex:1 1 100%;font-size:11px;color:var(--sub);overflow-wrap:anywhere}
+/* быстрые действия (появляются сами, когда выбрана деталь или ящик в ящике) и основное меню (по кнопке) */
+#qa{margin-top:8px}
+#mb{margin:6px -8px 0 -4px;padding:4px 8px 10px 4px;max-height:calc(100vh - 150px);max-height:calc(100dvh - 150px - env(safe-area-inset-top,0px));overflow-y:auto;overscroll-behavior:contain}
+.wide{width:100%}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;align-items:center}
+.g2 label{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px}
+.gps{margin-top:6px;font-size:11px;color:var(--sub);overflow-wrap:anywhere}
 #gp[aria-pressed="true"]{color:#1f9d55}
+.leg{margin-top:8px}
+.leg summary{cursor:pointer;font-size:12px;color:var(--sub)}
+#sw{gap:4px}
 /* полоска загрузки над сервером, пока он накрыт тканью («Навести порядок») */
 .clb{position:fixed;left:0;top:0;z-index:4;width:240px;transform:translate(-50%,-100%);pointer-events:none;opacity:0;transition:opacity .3s;text-align:center;color:#eef2ff;font:800 12px/1.3 "Nunito",system-ui,sans-serif;text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .clb.on{opacity:1}
@@ -34,7 +45,7 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1
 .clb.err .clf{background:#ff6b6b}
 .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
 .row label{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px}
-.sw{width:24px;height:24px;border-radius:50%;border:0;padding:0;cursor:pointer;box-shadow:3px 4px 7px var(--shd),-2px -2px 5px var(--shl),inset -3px -3px 5px rgba(0,0,0,.16),inset 3px 3px 5px rgba(255,255,255,.55)}
+.sw{width:20px;height:20px;border-radius:50%;border:0;padding:0;cursor:pointer;box-shadow:3px 4px 7px var(--shd),-2px -2px 5px var(--shl),inset -3px -3px 5px rgba(0,0,0,.16),inset 3px 3px 5px rgba(255,255,255,.55)}
 .btn{background:var(--card);color:var(--ink);border:0;border-radius:999px;padding:6px 12px;font:inherit;font-weight:800;font-size:12px;cursor:pointer;box-shadow:var(--raise-s)}
 .sw:disabled,.btn:disabled,input:disabled{opacity:.4;cursor:default}
 select{width:100%;border:0;border-radius:999px;padding:7px 12px;font:inherit;font-weight:800;font-size:12px;color:var(--ink);background:var(--card);box-shadow:var(--raise-s)}
@@ -96,23 +107,29 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <button id="cl" class="ib" hidden aria-label="Закрыть ящик"><svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
 <button id="tg" class="ib" aria-label="Меню" aria-expanded="false"><svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h12"/></svg></button>
 </div>
-<div id="mb" hidden>
-<div class="row"><select id="srv" aria-label="Сервер (репозиторий)"></select></div>
-<div class="row" id="pgr" hidden><button id="pp" class="btn" aria-label="Назад">‹</button><span id="pl"></span><button id="pn" class="btn" aria-label="Дальше">›</button></div>
+<div id="qa" hidden>
 <div class="row" id="lvr" hidden><button id="lp" class="btn" aria-label="Ящик наружу">◂</button><span id="ll"></span><button id="ln" class="btn" aria-label="Ящик внутри ящика">▸</button></div>
-<div class="row"><button id="pu" class="btn" disabled>Вытащить и править</button></div>
-<div class="row"><button id="tb" class="btn">Планшет</button></div>
-<div class="row"><button id="tdy" class="btn">Навести порядок</button></div>
-<div class="row"><button id="gp" class="btn" aria-pressed="false">Включить WebGPU</button><span id="gps" class="gps"></span></div>
+<div id="qs" hidden>
+<div class="row"><button id="pu" class="btn wide" disabled>Вытащить и править</button></div>
 <div class="row" id="sw"></div>
 <div class="row"><label>свой <input type="color" id="cc" value="#ffa51a" disabled></label>
 <button id="rs" class="btn" disabled>Сбросить</button></div>
-<div class="row"><label>Фон <input type="color" id="bg" value="#7ea6ff"></label><button id="lo" class="btn">Выйти</button></div>
-<div class="row" style="display:block">
+</div>
+</div>
+<div id="mb" hidden>
+<div class="row"><select id="srv" aria-label="Сервер (репозиторий)"></select></div>
+<div class="row" id="pgr" hidden><button id="pp" class="btn" aria-label="Назад">‹</button><span id="pl"></span><button id="pn" class="btn" aria-label="Дальше">›</button></div>
+<div class="row"><button id="tb" class="btn wide">Планшет</button></div>
+<div class="row"><button id="tdy" class="btn wide">Навести порядок</button></div>
+<div class="row"><button id="gp" class="btn wide" aria-pressed="false">Включить WebGPU</button></div>
+<div id="gps" class="gps"></div>
+<div class="g2"><label>Фон <input type="color" id="bg" value="#7ea6ff"></label><button id="lo" class="btn">Выйти</button></div>
+<details class="leg"><summary>Легенда деталей</summary>
 <div class="lg"><i style="background:#ffa51a"></i>Процессор: скрипты (до 4)</div>
 <div class="lg"><i style="background:#6c6f76"></i>RTX 5080: html, css (до 8)</div>
 <div class="lg"><i style="background:#ffe3d6"></i>SSD: фото, видео, аудио (до 12)</div>
-<div class="lg"><i style="background:#c8ced8"></i>SATA: .md и медиа из подпапок — открой, внутри чипы (до 12)</div></div>
+<div class="lg"><i style="background:#c8ced8"></i>SATA: .md и медиа из подпапок — открой, внутри чипы (до 12)</div>
+</details>
 </div>
 </div>
 <div id="tab" class="tab off">
@@ -133,10 +150,13 @@ const $=id=>document.getElementById(id);
 const TOK=sessionStorage.getItem('cyr_token');
 if(!TOK){location.replace('index.html');return;}
 let cv=$('c');
-const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
+/* цвета кэшируются: раньше hex() разбирал строку заново для каждой детали в каждом кадре */
+const hexC=new Map();
+const hex=h=>{let v=hexC.get(h);if(!v){if(hexC.size>512)hexC.clear();v=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);hexC.set(h,v);}return v;};
 const toHex=c=>'#'+c.map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
 /* цвет для карты нажатий: 16-битный номер объекта в красном и зелёном каналах */
-const pc=id=>[(id&255)/255,(id>>8)/255,0];
+const pcC=[];
+const pc=id=>pcC[id]||(pcC[id]=[(id&255)/255,(id>>8)/255,0]);
 
 /* ---- данные: сервер (репо) → ящики (папки) → детали (файлы) ----
    part: {o:центр, s:размер, f:множитель цвета детали | c:фиксированный цвет, k:1 — цилиндр вдоль Z} */
@@ -216,6 +236,8 @@ const MAXC=4,PER=4*MAXC,CW=6;let ncol=1;
 const dr=Array.from({length:PER},(_,i)=>({n:'',i,col:Math.floor(i/4),yc:YC[i%4],a:0,id:200+i,on:false,levels:1,shown:0,nl:new Array(MAXLV).fill(0)}));
 const cxOf=d=>(d.col-(ncol-1)/2)*CW;
 let repos=[],cur=0,cellsAll=[],pg=0,CELLS=[],items=[],msg='',tabOn=false,fs=false,fsrc='',edOn=false,F=null,outId=-1,edDone=false,lv=0,sOpen=-1;
+/* состояние цикла: рисуем кадр только если dirty (что-то изменилось); mv — в этом кадре шла анимация; animUntil — CSS-переход планшета; hasNew — есть «новые» файлы (мигают) */
+let dirty=true,mv=false,animUntil=0,hasNew=false;
 const K='#0d0e10',IN='#1c1d21',TR='#2b2d33',FSC='#1a1c22',SHF='#2a2d35';
 /* цельный корпус: боковины и крышка/дно перекрываются и скруглены одинаково — швов нет; ширина зависит от числа колонок n */
 function mkFrame(n){
@@ -321,17 +343,25 @@ const mul=(a,b)=>{const o=new Array(16).fill(0);for(let c=0;c<4;c++)for(let r=0;
 const rotY=a=>{const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1];};
 const rotX=a=>{const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1];};
 
-let yaw=.3,sel=-1,od=-1,bg=hex('#7ea6ff'),VP=null,W=1,H=1,dpr=1;
+let yaw=.3,sel=-1,od=-1,bg=hex('#7ea6ff'),VP=null,W=1,H=1,dpr=1,RX=1,RY=1;
 const S={pick:0,hi:0,vd:[0,0,1]};
 const cam={x:0,y:4.8,z:0,H:5.8,W:4.1,e:.45};
+/* true, если размер канваса изменился */
 function resize(){
  dpr=Math.min(devicePixelRatio||1,2);
  const w=Math.floor(innerWidth*dpr),h=Math.floor(innerHeight*dpr);
- if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
  W=w;H=h;
+ if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;return true;}
+ return false;
 }
-function box(t,s,c,r){R.box(t,s,c,Math.min(r===undefined?.2:r,.45*Math.min(s[0],s[1],s[2])));}
-function cyl(t,s,c){R.cyl(t,s,c);}
+/* отсечение по экрану: если шар, описанный вокруг детали, целиком вне кадра, деталь не отправляется на GPU (при приближении к ящику это большая часть сцены) */
+function vis(t,s){
+ const br=.5*Math.sqrt(s[0]*s[0]+s[1]*s[1]+s[2]*s[2]);
+ const cx=VP[0]*t[0]+VP[4]*t[1]+VP[8]*t[2]+VP[12],cy=VP[1]*t[0]+VP[5]*t[1]+VP[9]*t[2]+VP[13];
+ return Math.abs(cx)-br*RX<1.05&&Math.abs(cy)-br*RY<1.05;
+}
+function box(t,s,c,r){if(!vis(t,s))return;R.box(t,s,c,Math.min(r===undefined?.2:r,.45*Math.min(s[0],s[1],s[2])));}
+function cyl(t,s,c){if(!vis(t,s))return;R.cyl(t,s,c);}
 function setHi(v){S.hi=v;R.hi(v);}
 
 /* z центра лотка уровня L: основной лоток выезжает вместе с ящиком, вложенные выдвигаются вперёд один из другого */
@@ -391,6 +421,8 @@ function xf(it){
  return{b,c:it.sc,k};
 }
 const sataOpenPos=it=>{const d=dr[it.cell];return[cxOf(d),d.yc+.85,trayZ(d,it.lvl)+.35];};
+/* временные массивы для box()/cyl(): рендереры копируют значения сразу, поэтому новые массивы на каждую деталь не нужны */
+const _t=[0,0,0],_s=[0,0,0],_c=[0,0,0];
 function parts(it,pick){
  const e=it.ps*it.ps*(3-2*it.ps);
  let b,c,k;
@@ -406,12 +438,17 @@ function parts(it,pick){
  const rot=it.rot&&e<.5,le=it.type==='sata'?sm(it.op):0;
  setHi(pick?0:it.i===sel?.14:it.nw?.07+.06*Math.sin(performance.now()/260):0);
  for(const p of TYPES[it.type].parts){
-  let o=rot?[p.o[2],p.o[1],-p.o[0]]:p.o;const z=rot?[p.s[2],p.s[1],p.s[0]]:p.s;
+  let ox=rot?p.o[2]:p.o[0],oy=p.o[1],oz=rot?-p.o[0]:p.o[2];
+  const zx=rot?p.s[2]:p.s[0],zy=p.s[1],zz=rot?p.s[0]:p.s[2];
   /* крышка SATA-диска при открытии поднимается и отъезжает назад */
-  if(p.lid&&le>.001)o=[o[0],o[1]+.25*le,o[2]-.8*le];
-  const col=pick?pc(1000+it.i):p.c?hex(p.c):it.col.map(v=>v*p.f);
-  const t=[b[0]+o[0]*c,b[1]+o[1]*k*c,b[2]+o[2]*c],s=[z[0]*c,z[1]*k*c,z[2]*c];
-  if(p.k)cyl(t,s,col);else box(t,s,col);
+  if(p.lid&&le>.001){oy+=.25*le;oz-=.8*le;}
+  let col;
+  if(pick)col=pc(1000+it.i);
+  else if(p.c)col=hex(p.c);
+  else{_c[0]=it.col[0]*p.f;_c[1]=it.col[1]*p.f;_c[2]=it.col[2]*p.f;col=_c;}
+  _t[0]=b[0]+ox*c;_t[1]=b[1]+oy*k*c;_t[2]=b[2]+oz*c;
+  _s[0]=zx*c;_s[1]=zy*k*c;_s[2]=zz*c;
+  if(p.k)cyl(_t,_s,col);else box(_t,_s,col);
  }
 }
 function draw(pick){
@@ -419,9 +456,10 @@ function draw(pick){
  const P=[1/(sc*asp),0,0,0,0,1/sc,0,0,0,0,-.02,0,0,0,0,1];
  const T=[1,0,0,0,0,1,0,0,0,0,1,0,-cam.x,-cam.y,-cam.z,1];
  VP=mul(P,mul(rotX(e),mul(rotY(yaw),T)));
+ RX=Math.hypot(VP[0],VP[4],VP[8]);RY=Math.hypot(VP[1],VP[5],VP[9]);
  S.pick=pick?1:0;S.hi=0;S.vd=[-Math.sin(yaw)*Math.cos(e),Math.sin(e),Math.cos(yaw)*Math.cos(e)];
  R.begin(pick,bg,VP,S.vd);
- for(const[t,s,c,r]of frame)box(t,s,pick?[0,0,0]:hex(c),r);
+ for(const[t,s,c,r]of frame)box(t,s,pick?pc(0):hex(c),r);
  port(pick);stand(pick);
  for(const d of dr)if(d.col<ncol)drawer(d,pick);
  cloth(pick);
@@ -458,39 +496,47 @@ function proj(x,y,z){
  return[(o[0]*.5+.5)*innerWidth,(1-(o[1]*.5+.5))*innerHeight];
 }
 const mat=(a,b,c,w,h)=>'matrix('+[(b[0]-a[0])/w,(b[1]-a[1])/w,(c[0]-a[0])/h,(c[1]-a[1])/h,a[0],a[1]].join(',')+')';
+/* запись стилей только при изменении значения — лишние записи вызывают пересчёт стилей */
+const sT=(e,v)=>{if(e._t!==v){e._t=v;e.style.transform=v;}};
+const sO=(e,v)=>{if(e._o!==v){e._o=v;e.style.opacity=v;}};
 const tab=$('tab'),fr=$('fr'),tn=$('tn'),cb=$('cb'),mon=$('mon');
 function place(){
+ /* сначала чтение геометрии (планшет), потом записи стилей — иначе браузер пересчитывает раскладку посреди кадра */
+ const tr=tabOn?tab.getBoundingClientRect():null;
  const clb=$('clb');
  if(CL.t>0||CL.c>.02){const a=proj(0,10.3,0);clb.style.left=a[0]+'px';clb.style.top=a[1]+'px';clb.style.width=Math.min(innerWidth-24,Math.max(180,proj(ncol*CW/2,10.3,0)[0]-proj(-ncol*CW/2,10.3,0)[0]))+'px';}
- dr.forEach((d,i)=>{
+ /* под тканью скотч не виден */
+ const cb2=9.75-9.8*sm(Math.min(1,CL.c));
+ for(let i=0;i<dr.length;i++){
+  const d=dr[i],te=tapes[i];
+  if(!d.on){sO(te,0);continue;}
   const z=Z0+.24+d.a*TRAVEL,x0=cxOf(d)-2.3,y0=d.yc+.4;
   let cover=0;for(let j=d.col*4;j<i;j++)cover=Math.max(cover,dr[j].a);
-  tapes[i].style.transform=mat(proj(x0,y0,z),proj(x0+TW,y0,z),proj(x0,y0-TH,z),TPX,TPY);
-  /* под тканью скотч не виден */
-  const cb2=9.75-9.8*sm(Math.min(1,CL.c));
-  tapes[i].style.opacity=d.on&&y0<cb2-.2?Math.max(0,Math.min(1,1-cover*4)):0;
- });
+  sT(te,mat(proj(x0,y0,z),proj(x0+TW,y0,z),proj(x0,y0-TH,z),TPX,TPY));
+  sO(te,y0<cb2-.2?Math.max(0,Math.min(1,1-cover*4)):0);
+ }
  /* кабель: от разъёма на стойке к штекеру на верхнем крае планшета */
  if(tabOn){
-  const s=proj(ncol*3,PORT[1],PORT[2]),r=tab.getBoundingClientRect(),ex=r.left+r.width*.75,ey=r.top-6;
+  const s=proj(ncol*3,PORT[1],PORT[2]),ex=tr.left+tr.width*.75,ey=tr.top-6;
   $('cpth').setAttribute('d','M'+s+' C'+(s[0]+90)+','+(s[1]+20)+' '+ex+','+(ey-140)+' '+ex+','+ey);
   $('cpl').setAttribute('cx',s[0]);$('cpl').setAttribute('cy',s[1]);
   cb.style.visibility='visible';
  }else cb.style.visibility='hidden';
  /* экран монитора: начало файла, пока деталь лежит на столе */
  const on=outId>=0&&items[outId]&&items[outId].ps>.95;
- mon.style.transform=mat(proj(STX-1.5,5.35,-.77),proj(STX+1.5,5.35,-.77),proj(STX-1.5,3.65,-.77),300,170);
- mon.style.opacity=on?1:0;
+ sT(mon,mat(proj(STX-1.5,5.35,-.77),proj(STX+1.5,5.35,-.77),proj(STX-1.5,3.65,-.77),300,170));
+ sO(mon,on?1:0);
  /* подписи чипов открытого SATA-диска */
  const so=sOpen>=0&&outId<0?items[sOpen]:null;let li=0;
  if(so&&so.op>.85)for(const it of items){
   if(it.type!=='chip'||it.par!==sOpen||li>=chl.length)continue;
   const q=xf(it);if(!q)continue;
-  const w=.8*q.c,y=q.b[1]+.12*q.c,a=proj(q.b[0]-w/2,y,q.b[2]),bb=proj(q.b[0]+w/2,y,q.b[2]),el=chl[li++],t=it.media?it.name:it.name.replace(/\.(md|markdown|mdx)$/i,'');
+  const w=.8*q.c,y=q.b[1]+.12*q.c,a=proj(q.b[0]-w/2,y,q.b[2]),bb=proj(q.b[0]+w/2,y,q.b[2]),el=chl[li++],t=it.media?it.name:it.name.replace(/\.(md|markdown|mdx)$/i,''),wpx=Math.round(Math.max(24,bb[0]-a[0]));
   if(el.textContent!==t)el.textContent=t;
-  el.style.width=Math.max(24,bb[0]-a[0])+'px';el.style.transform='translate('+a[0]+'px,'+(a[1]-6)+'px)';el.style.opacity=1;
+  if(el._w!==wpx){el._w=wpx;el.style.width=wpx+'px';}
+  sT(el,'translate('+a[0]+'px,'+(a[1]-6)+'px)');sO(el,1);
  }
- for(;li<chl.length;li++)chl[li].style.opacity=0;
+ for(;li<chl.length;li++)sO(chl[li],0);
 }
 const chl=Array.from({length:CAP.sata},()=>{const e=document.createElement('div');e.className='chl';$('labels').appendChild(e);return e;});
 
@@ -511,12 +557,12 @@ function setSite(){
  else{tn.hidden=false;tn.textContent='У этого репозитория нет сайта. Включи GitHub Pages или укажи адрес в поле homepage.';fr.removeAttribute('src');fsrc='';}
 }
 function setFs(v){
- fs=v;document.body.classList.toggle('fs',v);$('tf').textContent=v?'⤡':'⤢';
+ fs=v;dirty=true;document.body.classList.toggle('fs',v);$('tf').textContent=v?'⤡':'⤢';
  try{if(v&&document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});
  else if(!v&&document.fullscreenElement)document.exitFullscreen();}catch(e){}
 }
 function setTab(v){
- tabOn=v;tab.classList.toggle('off',!v);$('tb').textContent=v?'Отключить планшет':'Планшет';
+ tabOn=v;dirty=true;animUntil=performance.now()+700;tab.classList.toggle('off',!v);$('tb').textContent=v?'Отключить планшет':'Планшет';
  if(v)setSite();else{setFs(false);fr.removeAttribute('src');fsrc='';}
 }
 $('tb').onclick=()=>setTab(!tabOn);
@@ -574,6 +620,7 @@ function build(){
    fit(P.ssd.length,ZN.ssd,FP.ssd).forEach((q,j)=>{mk('ssd',P.ssd[j],L,q);d.shown++;});
   });
  });
+ hasNew=items.some(it=>it.nw);
  dr.forEach((d,i)=>{const nn=d.on?CELLS[i].f.filter(f=>NEW.has(f)).length:0;tapes[i].firstChild.textContent=d.n+(d.levels>1?' ×'+d.levels:'')+(nn?' +'+nn:'');});
  od=-1;sel=-1;
  const pages=Math.ceil(cellsAll.length/PER);
@@ -644,7 +691,7 @@ function applyPend(){
  ui();
 }
 setInterval(poll,20000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){dirty=true;poll();}});
 async function loadRepos(){
  msg='Загружаю репозитории…';ui();
  try{
@@ -684,7 +731,7 @@ async function loadFile(it){
   }
   my.ok=true;
  }catch(e){my.err=e.msg||e.message;}
- if(F===my){showMon();fillEd();}
+ if(F===my){dirty=true;showMon();fillEd();}
 }
 function fillEd(){
  if(!F||!edOn)return;
@@ -703,7 +750,7 @@ function openEd(){edOn=true;$('ed').hidden=false;document.body.classList.add('ed
 function closeEd(){
  if(F&&F.dirty&&!confirm('Есть несохранённые изменения. Закрыть без сохранения?'))return;
  if(F)F.dirty=false;
- edOn=false;$('ed').hidden=true;document.body.classList.remove('edm');
+ edOn=false;dirty=true;$('ed').hidden=true;document.body.classList.remove('edm');
 }
 async function save(){
  if(!F||!F.ok||F.media)return;
@@ -742,14 +789,15 @@ document.addEventListener('keydown',e=>{
  if(e.key==='Escape'){if(edOn)closeEd();else if(fs)setFs(false);}
  else if(edOn&&(e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save();}
 });
+addEventListener('resize',()=>{dirty=true;});
 
 /* ---- ввод ---- */
 let down=null;
-cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,m:0};cv.setPointerCapture(e.pointerId);});
+cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,m:0};cv.setPointerCapture(e.pointerId);if(!mb.hidden)menu(false);});
 cv.addEventListener('pointermove',e=>{
  if(!down)return;
  const dx=e.clientX-down.x;down.m+=Math.abs(dx)+Math.abs(e.clientY-down.y);
- yaw=Math.max(-.9,Math.min(.9,yaw+dx*.008));down.x=e.clientX;down.y=e.clientY;
+ yaw=Math.max(-.9,Math.min(.9,yaw+dx*.008));down.x=e.clientX;down.y=e.clientY;dirty=true;
 });
 cv.addEventListener('pointerup',e=>{
  if(down&&down.m<6){
@@ -764,7 +812,7 @@ function tap(id){
  if(id===6){if(outId>=0)openEd();return;}
  if(id>=200&&id<300){
   const k=id-200;
-  if(dr[k]&&dr[k].on){od=od===k?-1:k;lv=0;sel=-1;sOpen=-1;if(od>=0&&dr[od].levels>1)menu(true);}
+  if(dr[k]&&dr[k].on){od=od===k?-1:k;lv=0;sel=-1;sOpen=-1;}
  }
  else if(id>=1000){
   const i=id-1000,it=items[i];
@@ -773,7 +821,7 @@ function tap(id){
   /* SATA-диск: тап открывает его (крышка уезжает, видны чипы); по открытому — только снять выбор */
   if(it.type==='sata'){if(sOpen!==i){sOpen=i;od=it.cell;}sel=-1;ui();return;}
   if(sel===i){pull(i);return;}
-  sel=i;menu(true);
+  sel=i;
  }
  else if(id>=100&&id<200){if(sel>=0)sel=-1;else sOpen=-1;}
  else if(sel>=0){sel=-1;}
@@ -782,19 +830,24 @@ function tap(id){
  ui();
 }
 
-/* ---- меню (левый верхний угол) ---- */
+/* ---- меню (левый верхний угол) ----
+   Заголовок всегда компактный. Быстрые действия (qa) появляются сами, когда выбрана деталь или есть ящик в ящике.
+   Остальное — за кнопкой «три полоски»; при тапе по детали меню само больше не раскрывается. */
 const sw=$('sw'),cc=$('cc'),rs=$('rs'),cl=$('cl'),tg=$('tg'),mb=$('mb');
 ['#ffa51a','#2fc24a','#ffe3d6','#8de0b7','#ff9fb8','#c3b0ff','#8fd8ff','#ffe58a'].forEach(c=>{
  const b=document.createElement('button');b.className='sw';b.style.background=c;b.disabled=true;b.setAttribute('aria-label','Цвет '+c);
  b.onclick=()=>paint(c);sw.appendChild(b);
 });
 function menu(v){mb.hidden=!v;tg.setAttribute('aria-expanded',v);}
-function paint(c){if(sel<0)return;items[sel].col=hex(c);cc.value=c;}
+function paint(c){if(sel<0)return;items[sel].col=hex(c);cc.value=c;dirty=true;}
 function ui(){
+ dirty=true;
  const on=sel>=0,nest=od>=0&&dr[od].levels>1;
  sw.querySelectorAll('button').forEach(b=>b.disabled=!on);cc.disabled=rs.disabled=!on;
  $('pu').disabled=!on;
+ $('qs').hidden=!on;
  $('lvr').hidden=!nest;
+ $('qa').hidden=!(on||nest);
  if(nest){$('ll').textContent='ящик в ящике '+(lv+1)+' / '+dr[od].levels;$('lp').disabled=lv<1;$('ln').disabled=lv>=dr[od].levels-1;}
  cl.hidden=od<0&&outId<0;
  cl.setAttribute('aria-label',outId>=0?'Вернуть деталь на место':sOpen>=0?'Закрыть SATA-диск':'Закрыть ящик');
@@ -806,9 +859,9 @@ function ui(){
 }
 tg.onclick=()=>menu(mb.hidden);
 cc.oninput=()=>paint(cc.value);
-rs.onclick=()=>{if(sel>=0){const it=items[sel];it.col=hex(it.base);cc.value=it.base;}};
+rs.onclick=()=>{if(sel>=0){const it=items[sel];it.col=hex(it.base);cc.value=it.base;dirty=true;}};
 cl.onclick=()=>{if(outId>=0){leave();return;}if(sOpen>=0){sOpen=-1;sel=-1;ui();return;}od=-1;lv=0;sel=-1;ui();};
-$('bg').oninput=e=>{bg=hex(e.target.value);document.documentElement.style.setProperty('--bg',e.target.value);};
+$('bg').oninput=e=>{bg=hex(e.target.value);dirty=true;document.documentElement.style.setProperty('--bg',e.target.value);};
 $('srv').onchange=e=>{if(!leaveOk()){e.target.value=cur;return;}loadServer(+e.target.value);};
 $('pp').onclick=()=>{if(!leaveOk())return;pg--;build();};
 $('pn').onclick=()=>{if(!leaveOk())return;pg++;build();};
@@ -956,11 +1009,12 @@ $('tdy').onclick=tidy;
 const gp=$('gp'),gps=$('gps'),GPU_OK=!!navigator.gpu&&window.isSecureContext,isGpu=R.name==='WebGPU';
 gp.textContent=isGpu?'WebGPU: вкл':'Включить WebGPU';
 gp.setAttribute('aria-pressed',isGpu);
-gps.textContent=isGpu?'Рендер: WebGPU'+(R.label?' ('+R.label+')':'')
+let gpsBase=isGpu?'Рендер: WebGPU'+(R.label?' ('+R.label+')':'')
  :gpuErr?'WebGPU не завёлся: '+gpuErr+'. Рендер: WebGL'
  :GPU_OK?'Рендер: WebGL':'Браузер без WebGPU (нужен Chrome/Edge 113+, Safari 26+, Firefox 141+; в Chrome на Linux/Android может понадобиться chrome://flags/#enable-unsafe-webgpu). Рендер: WebGL';
+gps.textContent=gpsBase;
 gp.onclick=()=>{
- if(!isGpu&&!GPU_OK){gps.textContent='WebGPU недоступен в этом браузере: '+(window.isSecureContext?'нет navigator.gpu':'нужен https')+'. Рендер: WebGL';return;}
+ if(!isGpu&&!GPU_OK){gps.textContent=gpsBase='WebGPU недоступен в этом браузере: '+(window.isSecureContext?'нет navigator.gpu':'нужен https')+'. Рендер: WebGL';return;}
  if(!leaveOk())return;
  if(isGpu)localStorage.removeItem('cyr_gpu');else localStorage.setItem('cyr_gpu','1');
  location.reload();
@@ -968,25 +1022,49 @@ gp.onclick=()=>{
 $('lo').onclick=()=>{if(!leaveOk())return;sessionStorage.removeItem('cyr_token');location.replace('index.html');};
 build();loadRepos();
 
-/* ---- цикл (при открытом планшете на весь экран или редакторе сцена не рисуется) ---- */
-(function loop(){
- if(!fs&&!edOn){
-  resize();
-  dr.forEach((d,i)=>{
-   d.a+=((i===od?1:0)-d.a)*.14;
-   for(let L=1;L<MAXLV;L++)d.nl[L]+=(((i===od&&L<=lv)?1:0)-d.nl[L])*.12;
-  });
-  items.forEach((it,i)=>{if(it.type==='sata')it.op+=((i===sOpen?1:0)-it.op)*.1;it.y+=((i===sel?.3:0)-it.y)*.18;it.ps+=(it.pt-it.ps)*.07;if(Math.abs(it.pt-it.ps)<.002)it.ps=it.pt;});
-  const tg2=outId>=0?{x:STX,y:3.6,z:0,H:3.7,W:4,e:.4}:od<0?{x:0,y:4.8,z:0,H:5.8,W:ncol*3+1.1,e:.45}:sOpen>=0?(p=>({x:p[0],y:p[1],z:p[2],H:1.55,W:1.9,e:1.05}))(sataOpenPos(items[sOpen])):{x:cxOf(dr[od]),y:dr[od].yc-.1,z:3+lv*NEST,H:2.9,W:3.3,e:.95};
-  for(const k in tg2)cam[k]+=(tg2[k]-cam[k])*.1;
-  draw(false);place();
-  if(outId>=0&&!edDone&&items[outId].ps>.985){edDone=true;openEd();}
-  if(pend)applyPend();
-  /* ткань движется по времени (≈0.8 с), а не по кадрам — одинаково на быстрых и медленных устройствах */
-  {const now=performance.now(),dt=Math.min(.1,(now-(CL.ts||now))/1000);CL.ts=now;CL.c+=Math.sign(CL.t-CL.c)*Math.min(Math.abs(CL.t-CL.c),dt/.8);}
- }
+/* ---- цикл ----
+   Кадр рисуется только если что-то изменилось (анимация, поворот, выбор, данные); в покое GPU и CPU не работают.
+   Анимации считаются по времени, а не по кадрам, поэтому на 120 Гц они идут с той же скоростью, что и на 60.
+   При открытом планшете на весь экран или редакторе сцена не рисуется. */
+const kk=(b,dt)=>1-Math.pow(1-b,dt*60);
+const ease=(v,t,k,eps)=>{if(v===t)return v;mv=true;const e=v+(t-v)*k;return Math.abs(t-e)<(eps||5e-4)?t:e;};
+let lastNow=0,lastDraw=0,prevDrew=false,fpsEma=0,lastGps=0;
+function loop(now){
  requestAnimationFrame(loop);
-})();
+ const dt=lastNow?Math.min(.05,Math.max(.001,(now-lastNow)/1000)):1/60;lastNow=now;
+ if(fs||edOn){dirty=true;prevDrew=false;return;}
+ if(resize())dirty=true;
+ mv=false;
+ const kd=kk(.14,dt),kn=kk(.12,dt),ko=kk(.1,dt),ky=kk(.18,dt),kp=kk(.07,dt);
+ for(let i=0;i<dr.length;i++){
+  const d=dr[i];
+  d.a=ease(d.a,i===od?1:0,kd);
+  for(let L=1;L<MAXLV;L++)d.nl[L]=ease(d.nl[L],(i===od&&L<=lv)?1:0,kn);
+ }
+ for(let i=0;i<items.length;i++){
+  const it=items[i];
+  if(it.type==='sata')it.op=ease(it.op,i===sOpen?1:0,ko);
+  it.y=ease(it.y,i===sel?.3:0,ky);
+  it.ps=ease(it.ps,it.pt,kp,.002);
+ }
+ const tg2=outId>=0?{x:STX,y:3.6,z:0,H:3.7,W:4,e:.4}:od<0?{x:0,y:4.8,z:0,H:5.8,W:ncol*3+1.1,e:.45}:sOpen>=0?(p=>({x:p[0],y:p[1],z:p[2],H:1.55,W:1.9,e:1.05}))(sataOpenPos(items[sOpen])):{x:cxOf(dr[od]),y:dr[od].yc-.1,z:3+lv*NEST,H:2.9,W:3.3,e:.95};
+ for(const k in tg2)cam[k]=ease(cam[k],tg2[k],ko);
+ /* ткань движется по времени (≈0.8 с) */
+ if(CL.c!==CL.t){const df=CL.t-CL.c;CL.c=Math.abs(df)<1e-6?CL.t:CL.c+Math.sign(df)*Math.min(Math.abs(df),dt/.8);mv=true;}
+ /* перерисовка: идёт анимация, ткань, переход планшета, мигают новые файлы (≈30 к/с) или страховка раз в 0.5 с */
+ if(mv||now<animUntil||CL.t>0||CL.c>0||now-lastDraw>500||(hasNew&&now-lastDraw>33))dirty=true;
+ if(dirty){
+  dirty=false;
+  if(prevDrew){const ft=now-lastDraw;fpsEma=fpsEma?fpsEma+(ft-fpsEma)*.1:ft;}
+  lastDraw=now;prevDrew=true;
+  draw(false);place();
+  /* пока открыто меню — показываем частоту кадров во время анимации */
+  if(fpsEma&&!mb.hidden&&now-lastGps>500){lastGps=now;gps.textContent=gpsBase+' · '+Math.round(1000/fpsEma)+' к/с';}
+ }else prevDrew=false;
+ if(outId>=0&&!edDone&&items[outId].ps>.985){edDone=true;openEd();}
+ if(pend)applyPend();
+}
+requestAnimationFrame(loop);
 })();
 </script>
 </body>
